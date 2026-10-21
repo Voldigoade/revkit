@@ -1,0 +1,897 @@
+{
+  "schema_version": 1,
+  "tools": [
+    {
+      "id": "file",
+      "name": "file",
+      "category_fr": "Identification",
+      "category_en": "Identification",
+      "type": "system",
+      "package": "file",
+      "detect_command": "file",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/file",
+      "install_method": "apt",
+      "description_fr": "Identifie un format à partir de son contenu.",
+      "description_en": "Identifies a file format from its contents.",
+      "when_to_use_fr": "Quand le nom ou l'extension ne sont pas fiables.",
+      "when_to_use_en": "When a name or extension cannot be trusted.",
+      "when_not_to_use_fr": "Ce résultat n'explique pas le comportement du fichier.",
+      "when_not_to_use_en": "The result does not explain what the file does.",
+      "basic_usage": "file sample.bin",
+      "documentation_url": "https://man7.org/linux/man-pages/man1/file.1.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "readelf",
+      "name": "readelf",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "binutils",
+      "detect_command": "readelf",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/binutils",
+      "install_method": "apt",
+      "description_fr": "Affiche les en-têtes, sections et segments ELF.",
+      "description_en": "Displays ELF headers, sections, and segments.",
+      "when_to_use_fr": "Pour examiner la structure d'un ELF sans l'exécuter.",
+      "when_to_use_en": "To inspect ELF structure without running it.",
+      "when_not_to_use_fr": "Pour le désassemblage, utilisez objdump ou un désassembleur dédié.",
+      "when_not_to_use_en": "For disassembly, use objdump or a dedicated disassembler.",
+      "basic_usage": "readelf -h -S sample",
+      "documentation_url": "https://sourceware.org/binutils/docs/binutils/readelf.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "objdump",
+      "name": "objdump",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "binutils",
+      "detect_command": "objdump",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/binutils",
+      "install_method": "apt",
+      "description_fr": "Désassemble du code et affiche des informations binaires.",
+      "description_en": "Disassembles code and displays binary metadata.",
+      "when_to_use_fr": "Pour une première lecture du code machine.",
+      "when_to_use_en": "For a first look at machine code.",
+      "when_not_to_use_fr": "La sortie peut être trompeuse sans connaître l'architecture et le contexte.",
+      "when_not_to_use_en": "Output can mislead without the correct architecture and context.",
+      "basic_usage": "objdump -d -M intel sample",
+      "documentation_url": "https://sourceware.org/binutils/docs/binutils/objdump.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "nm",
+      "name": "nm",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "binutils",
+      "detect_command": "nm",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/binutils",
+      "install_method": "apt",
+      "description_fr": "Liste les symboles définis ou référencés.",
+      "description_en": "Lists defined and referenced symbols.",
+      "when_to_use_fr": "Pour repérer rapidement fonctions et symboles externes.",
+      "when_to_use_en": "To quickly find functions and external symbols.",
+      "when_not_to_use_fr": "Un binaire dépouillé peut contenir peu de symboles.",
+      "when_not_to_use_en": "A stripped binary may contain few symbols.",
+      "basic_usage": "nm -C sample",
+      "documentation_url": "https://sourceware.org/binutils/docs/binutils/nm.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "strings",
+      "name": "strings",
+      "category_fr": "Recherche d'indices",
+      "category_en": "Clue discovery",
+      "type": "system",
+      "package": "binutils",
+      "detect_command": "strings",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/binutils",
+      "install_method": "apt",
+      "description_fr": "Extrait les chaînes de caractères imprimables.",
+      "description_en": "Extracts printable character sequences.",
+      "when_to_use_fr": "Pour trouver messages, chemins ou constantes visibles.",
+      "when_to_use_en": "To find visible messages, paths, or constants.",
+      "when_not_to_use_fr": "Une chaîne isolée ne prouve pas qu'elle est utilisée.",
+      "when_not_to_use_en": "A string alone does not prove it is used.",
+      "basic_usage": "strings -a sample",
+      "documentation_url": "https://sourceware.org/binutils/docs/binutils/strings.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "elfutils",
+      "name": "elfutils",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "elfutils",
+      "detect_command": "eu-readelf",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/elfutils",
+      "install_method": "apt",
+      "description_fr": "Fournit des outils ELF complémentaires, dont eu-readelf.",
+      "description_en": "Provides complementary ELF utilities, including eu-readelf.",
+      "when_to_use_fr": "Pour comparer une seconde implémentation des outils ELF.",
+      "when_to_use_en": "To compare a second implementation of ELF utilities.",
+      "when_not_to_use_fr": "Ce n'est pas un débogueur ni un désassembleur interactif.",
+      "when_not_to_use_en": "It is not a debugger or interactive disassembler.",
+      "basic_usage": "eu-readelf -h sample",
+      "documentation_url": "https://sourceware.org/elfutils/",
+      "interface": "CLI"
+    },
+    {
+      "id": "checksec",
+      "name": "checksec",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "checksec",
+      "detect_command": "checksec",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/checksec",
+      "install_method": "apt",
+      "description_fr": "Résume les protections usuelles d'un exécutable.",
+      "description_en": "Summarizes common executable protections.",
+      "when_to_use_fr": "Pour relever rapidement les mitigations activées.",
+      "when_to_use_en": "To quickly check which mitigations are enabled.",
+      "when_not_to_use_fr": "Les protections ne déterminent pas à elles seules si un programme est sûr.",
+      "when_not_to_use_en": "Protections alone do not determine whether a program is safe.",
+      "basic_usage": "checksec --file=sample",
+      "documentation_url": "https://github.com/slimm609/checksec",
+      "interface": "CLI"
+    },
+    {
+      "id": "xxd",
+      "name": "xxd",
+      "category_fr": "Inspection hexadécimale",
+      "category_en": "Hex inspection",
+      "type": "system",
+      "package": "xxd",
+      "detect_command": "xxd",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/xxd",
+      "install_method": "apt",
+      "description_fr": "Affiche ou reconstruit une représentation hexadécimale.",
+      "description_en": "Displays or reconstructs a hexadecimal representation.",
+      "when_to_use_fr": "Pour inspecter quelques octets avec leur offset.",
+      "when_to_use_en": "To inspect bytes alongside their offsets.",
+      "when_not_to_use_fr": "Pour éditer un gros fichier, choisissez un éditeur hexadécimal dédié.",
+      "when_not_to_use_en": "For large edits, use a dedicated hex editor.",
+      "basic_usage": "xxd -l 64 sample",
+      "documentation_url": "https://man7.org/linux/man-pages/man1/xxd.1.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "hexedit",
+      "name": "hexedit",
+      "category_fr": "Inspection hexadécimale",
+      "category_en": "Hex inspection",
+      "type": "system",
+      "package": "hexedit",
+      "detect_command": "hexedit",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/hexedit",
+      "install_method": "apt",
+      "description_fr": "Permet de modifier un fichier en hexadécimal dans un terminal.",
+      "description_en": "Edits a file in hexadecimal from a terminal.",
+      "when_to_use_fr": "Pour une petite modification contrôlée sur une copie.",
+      "when_to_use_en": "For a small, controlled edit on a copy.",
+      "when_not_to_use_fr": "N'éditez jamais l'unique exemplaire d'un échantillon.",
+      "when_not_to_use_en": "Never edit the only copy of a sample.",
+      "basic_usage": "hexedit sample.bin",
+      "documentation_url": "https://packages.debian.org/stable/hexedit",
+      "interface": "CLI"
+    },
+    {
+      "id": "gdb",
+      "name": "GDB",
+      "category_fr": "Débogage",
+      "category_en": "Debugging",
+      "type": "system",
+      "package": "gdb",
+      "detect_command": "gdb",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/gdb",
+      "install_method": "apt",
+      "description_fr": "Débogueur natif pour examiner un programme à l'exécution.",
+      "description_en": "Native debugger for inspecting a program at runtime.",
+      "when_to_use_fr": "Pour poser des points d'arrêt et examiner registres et mémoire.",
+      "when_to_use_en": "To set breakpoints and inspect registers and memory.",
+      "when_not_to_use_fr": "N'exécutez pas un fichier inconnu sur votre poste habituel.",
+      "when_not_to_use_en": "Do not run an unknown file on your everyday workstation.",
+      "basic_usage": "gdb --args ./sample",
+      "documentation_url": "https://sourceware.org/gdb/documentation/",
+      "interface": "CLI"
+    },
+    {
+      "id": "gdb-multiarch",
+      "name": "GDB multiarch",
+      "category_fr": "Débogage",
+      "category_en": "Debugging",
+      "type": "system",
+      "package": "gdb-multiarch",
+      "detect_command": "gdb-multiarch",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/gdb-multiarch",
+      "install_method": "apt",
+      "description_fr": "GDB avec prise en charge de plusieurs architectures cibles.",
+      "description_en": "GDB with support for multiple target architectures.",
+      "when_to_use_fr": "Pour étudier du code compilé pour une autre architecture.",
+      "when_to_use_en": "To inspect code built for another architecture.",
+      "when_not_to_use_fr": "Le débogage d'une cible distante exige une configuration séparée.",
+      "when_not_to_use_en": "Remote target debugging needs separate configuration.",
+      "basic_usage": "gdb-multiarch ./sample",
+      "documentation_url": "https://sourceware.org/gdb/documentation/",
+      "interface": "CLI"
+    },
+    {
+      "id": "strace",
+      "name": "strace",
+      "category_fr": "Analyse dynamique",
+      "category_en": "Dynamic analysis",
+      "type": "system",
+      "package": "strace",
+      "detect_command": "strace",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/strace",
+      "install_method": "apt",
+      "description_fr": "Trace les appels système d'un processus.",
+      "description_en": "Traces a process's system calls.",
+      "when_to_use_fr": "Pour observer fichiers, processus et appels noyau.",
+      "when_to_use_en": "To observe file, process, and kernel calls.",
+      "when_not_to_use_fr": "La trace ne décrit pas à elle seule l'intention du programme.",
+      "when_not_to_use_en": "A trace does not explain the program's intent by itself.",
+      "basic_usage": "strace -f -o trace.txt ./sample",
+      "documentation_url": "https://strace.io/",
+      "interface": "CLI"
+    },
+    {
+      "id": "ltrace",
+      "name": "ltrace",
+      "category_fr": "Analyse dynamique",
+      "category_en": "Dynamic analysis",
+      "type": "system",
+      "package": "ltrace",
+      "detect_command": "ltrace",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/ltrace",
+      "install_method": "apt",
+      "description_fr": "Trace les appels à des fonctions de bibliothèques dynamiques.",
+      "description_en": "Traces calls to dynamic library functions.",
+      "when_to_use_fr": "Pour observer certaines interactions libc.",
+      "when_to_use_en": "To observe selected libc interactions.",
+      "when_not_to_use_fr": "Les appels directs au noyau et les binaires statiques échappent souvent à ltrace.",
+      "when_not_to_use_en": "Direct syscalls and static binaries often bypass ltrace.",
+      "basic_usage": "ltrace ./sample",
+      "documentation_url": "https://man7.org/linux/man-pages/man1/ltrace.1.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "lldb",
+      "name": "LLDB",
+      "category_fr": "Débogage",
+      "category_en": "Debugging",
+      "type": "system",
+      "package": "lldb",
+      "detect_command": "lldb",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/lldb",
+      "install_method": "apt",
+      "description_fr": "Débogueur interactif du projet LLVM.",
+      "description_en": "Interactive debugger from the LLVM project.",
+      "when_to_use_fr": "Pour une interface de débogage alternative à GDB.",
+      "when_to_use_en": "For an alternative debugger to GDB.",
+      "when_not_to_use_fr": "Les commandes et extensions GDB ne sont pas toujours compatibles.",
+      "when_not_to_use_en": "GDB commands and extensions are not always compatible.",
+      "basic_usage": "lldb ./sample",
+      "documentation_url": "https://lldb.llvm.org/",
+      "interface": "CLI"
+    },
+    {
+      "id": "valgrind",
+      "name": "Valgrind",
+      "category_fr": "Analyse dynamique",
+      "category_en": "Dynamic analysis",
+      "type": "system",
+      "package": "valgrind",
+      "detect_command": "valgrind",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/valgrind",
+      "install_method": "apt",
+      "description_fr": "Détecte plusieurs erreurs mémoire à l'exécution.",
+      "description_en": "Finds several classes of memory errors at runtime.",
+      "when_to_use_fr": "Pour diagnostiquer une corruption mémoire sur un programme de confiance.",
+      "when_to_use_en": "To diagnose memory errors in a trusted program.",
+      "when_not_to_use_fr": "Il ralentit fortement le programme et ne remplace pas un débogueur.",
+      "when_not_to_use_en": "It slows programs considerably and does not replace a debugger.",
+      "basic_usage": "valgrind --leak-check=full ./sample",
+      "documentation_url": "https://valgrind.org/docs/manual/",
+      "interface": "CLI"
+    },
+    {
+      "id": "qemu-user",
+      "name": "QEMU user mode",
+      "category_fr": "Compatibilité",
+      "category_en": "Compatibility",
+      "type": "system",
+      "package": "qemu-user",
+      "detect_command": "qemu-x86_64",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/qemu-user",
+      "install_method": "apt",
+      "description_fr": "Émule des processus Linux d'autres architectures.",
+      "description_en": "Emulates Linux processes built for other architectures.",
+      "when_to_use_fr": "Pour exécuter un binaire étranger dans un environnement adapté.",
+      "when_to_use_en": "To run a foreign-architecture binary in a suitable environment.",
+      "when_not_to_use_fr": "Ce n'est pas une sandbox de sécurité.",
+      "when_not_to_use_en": "It is not a security sandbox.",
+      "basic_usage": "qemu-x86_64 ./foreign-sample",
+      "documentation_url": "https://www.qemu.org/docs/master/user/main.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "gcc",
+      "name": "GCC",
+      "category_fr": "Compilation",
+      "category_en": "Compilation",
+      "type": "system",
+      "package": "gcc",
+      "detect_command": "gcc",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/gcc",
+      "install_method": "apt",
+      "description_fr": "Compile du code C et C++ avec la toolchain GNU.",
+      "description_en": "Compiles C and C++ with the GNU toolchain.",
+      "when_to_use_fr": "Pour compiler les exemples et observer l'effet des options.",
+      "when_to_use_en": "To build examples and study compiler options.",
+      "when_not_to_use_fr": "La compilation ne rend pas un échantillon sûr à exécuter.",
+      "when_not_to_use_en": "Compilation does not make a sample safe to run.",
+      "basic_usage": "gcc -g -O0 hello.c -o hello",
+      "documentation_url": "https://gcc.gnu.org/onlinedocs/",
+      "interface": "CLI"
+    },
+    {
+      "id": "gcc-multilib",
+      "name": "GCC multilib",
+      "category_fr": "Compilation",
+      "category_en": "Compilation",
+      "type": "system",
+      "package": "gcc-multilib",
+      "detect_command": "gcc",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/gcc-multilib",
+      "install_method": "apt",
+      "description_fr": "Ajoute les bibliothèques nécessaires à certaines compilations 32 bits.",
+      "description_en": "Adds libraries needed for some 32-bit builds.",
+      "when_to_use_fr": "Pour produire des ELF 32 bits sur une machine x86-64.",
+      "when_to_use_en": "To produce 32-bit ELF files on an x86-64 host.",
+      "when_not_to_use_fr": "N'installez pas cette variante si vous n'en avez pas besoin.",
+      "when_not_to_use_en": "Skip this package if you do not need it.",
+      "basic_usage": "gcc -m32 hello.c -o hello32",
+      "documentation_url": "https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "clang",
+      "name": "Clang",
+      "category_fr": "Compilation",
+      "category_en": "Compilation",
+      "type": "system",
+      "package": "clang",
+      "detect_command": "clang",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/clang",
+      "install_method": "apt",
+      "description_fr": "Compilateur C, C++ et Objective-C du projet LLVM.",
+      "description_en": "C, C++, and Objective-C compiler from LLVM.",
+      "when_to_use_fr": "Pour comparer les choix de code machine de deux compilateurs.",
+      "when_to_use_en": "To compare machine-code output from two compilers.",
+      "when_not_to_use_fr": "Un autre compilateur peut produire un code différent.",
+      "when_not_to_use_en": "A different compiler may produce different code.",
+      "basic_usage": "clang -g -O0 hello.c -o hello",
+      "documentation_url": "https://clang.llvm.org/docs/",
+      "interface": "CLI"
+    },
+    {
+      "id": "llvm",
+      "name": "LLVM utilities",
+      "category_fr": "Inspection ELF",
+      "category_en": "ELF inspection",
+      "type": "system",
+      "package": "llvm",
+      "detect_command": "llvm-objdump",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/llvm",
+      "install_method": "apt",
+      "description_fr": "Fournit objdump et d'autres utilitaires LLVM.",
+      "description_en": "Provides objdump and other LLVM utilities.",
+      "when_to_use_fr": "Pour disposer d'outils d'inspection alternatifs.",
+      "when_to_use_en": "To use alternative inspection tools.",
+      "when_not_to_use_fr": "La syntaxe diffère parfois de celle de GNU binutils.",
+      "when_not_to_use_en": "Its syntax sometimes differs from GNU binutils.",
+      "basic_usage": "llvm-objdump -d sample",
+      "documentation_url": "https://llvm.org/docs/CommandGuide/llvm-objdump.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "nasm",
+      "name": "NASM",
+      "category_fr": "Compilation",
+      "category_en": "Compilation",
+      "type": "system",
+      "package": "nasm",
+      "detect_command": "nasm",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/nasm",
+      "install_method": "apt",
+      "description_fr": "Assembleur x86 et x86-64.",
+      "description_en": "Assembler for x86 and x86-64.",
+      "when_to_use_fr": "Pour construire de courts exemples assembleur.",
+      "when_to_use_en": "To build short assembly examples.",
+      "when_not_to_use_fr": "Il ne remplace pas un compilateur C.",
+      "when_not_to_use_en": "It does not replace a C compiler.",
+      "basic_usage": "nasm -f elf64 minimal.asm",
+      "documentation_url": "https://www.nasm.us/docs.php",
+      "interface": "CLI"
+    },
+    {
+      "id": "yasm",
+      "name": "Yasm",
+      "category_fr": "Compilation",
+      "category_en": "Compilation",
+      "type": "system",
+      "package": "yasm",
+      "detect_command": "yasm",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/yasm",
+      "install_method": "apt",
+      "description_fr": "Assembleur compatible NASM pour plusieurs formats objet.",
+      "description_en": "NASM-compatible assembler for several object formats.",
+      "when_to_use_fr": "Pour tester une autre toolchain assembleur x86.",
+      "when_to_use_en": "To try another x86 assembler toolchain.",
+      "when_not_to_use_fr": "Il n'est nécessaire que pour des cas de compatibilité spécifiques.",
+      "when_not_to_use_en": "It is only needed for specific compatibility cases.",
+      "basic_usage": "yasm -f elf64 minimal.asm",
+      "documentation_url": "https://yasm.tortall.net/Documentation.html",
+      "interface": "CLI"
+    },
+    {
+      "id": "python3",
+      "name": "Python 3",
+      "category_fr": "Bibliothèques",
+      "category_en": "Libraries",
+      "type": "system",
+      "package": "python3",
+      "detect_command": "python3",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/python3",
+      "install_method": "apt",
+      "description_fr": "Interpréteur Python fourni par Debian et Ubuntu.",
+      "description_en": "Python interpreter provided by Debian and Ubuntu.",
+      "when_to_use_fr": "Pour de petits scripts d'analyse et l'écosystème pyelftools.",
+      "when_to_use_en": "For small analysis scripts and the pyelftools ecosystem.",
+      "when_not_to_use_fr": "N'exécutez pas de script inconnu sans l'avoir lu.",
+      "when_not_to_use_en": "Do not run an unknown script without reviewing it.",
+      "basic_usage": "python3 --version",
+      "documentation_url": "https://docs.python.org/3/",
+      "interface": "CLI"
+    },
+    {
+      "id": "python3-pyelftools",
+      "name": "pyelftools",
+      "category_fr": "Bibliothèques",
+      "category_en": "Libraries",
+      "type": "system",
+      "package": "python3-pyelftools",
+      "detect_command": "python3",
+      "version_args": [
+        "-c",
+        "import importlib.metadata; print(importlib.metadata.version('pyelftools'))"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/python3-pyelftools",
+      "install_method": "apt",
+      "description_fr": "Bibliothèque Python pour lire les structures ELF.",
+      "description_en": "Python library for reading ELF structures.",
+      "when_to_use_fr": "Pour analyser des métadonnées ELF dans un script.",
+      "when_to_use_en": "To inspect ELF metadata from a script.",
+      "when_not_to_use_fr": "Elle ne désassemble pas le code machine.",
+      "when_not_to_use_en": "It does not disassemble machine code.",
+      "basic_usage": "python3 -c 'from elftools.elf.elffile import ELFFile'",
+      "documentation_url": "https://github.com/eliben/pyelftools",
+      "module_check": "elftools",
+      "interface": "CLI"
+    },
+    {
+      "id": "python3-capstone",
+      "name": "Capstone",
+      "category_fr": "Bibliothèques",
+      "category_en": "Libraries",
+      "type": "system",
+      "package": "python3-capstone",
+      "detect_command": "python3",
+      "version_args": [
+        "-c",
+        "import importlib.metadata; print(importlib.metadata.version('capstone'))"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/python3-capstone",
+      "install_method": "apt",
+      "description_fr": "Moteur de désassemblage léger avec API Python.",
+      "description_en": "Lightweight disassembly engine with a Python API.",
+      "when_to_use_fr": "Pour désassembler quelques instructions dans un script.",
+      "when_to_use_en": "To disassemble a few instructions from a script.",
+      "when_not_to_use_fr": "Il ne fournit pas un décompilateur ni une interface graphique.",
+      "when_not_to_use_en": "It does not provide a decompiler or graphical interface.",
+      "basic_usage": "python3 -c 'import capstone'",
+      "documentation_url": "https://www.capstone-engine.org/",
+      "module_check": "capstone",
+      "interface": "CLI"
+    },
+    {
+      "id": "yara",
+      "name": "YARA",
+      "category_fr": "Recherche d'indices",
+      "category_en": "Clue discovery",
+      "type": "system",
+      "package": "yara",
+      "detect_command": "yara",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/yara",
+      "install_method": "apt",
+      "description_fr": "Fait correspondre des règles aux fichiers et processus.",
+      "description_en": "Matches rules against files and processes.",
+      "when_to_use_fr": "Pour rechercher des motifs connus dans une copie d'un échantillon.",
+      "when_to_use_en": "To search for known patterns in a copy of a sample.",
+      "when_not_to_use_fr": "Une règle positive n'est pas une conclusion d'attribution.",
+      "when_not_to_use_en": "A rule match is not an attribution finding.",
+      "basic_usage": "yara rules.yar sample.bin",
+      "documentation_url": "https://yara.readthedocs.io/",
+      "interface": "CLI"
+    },
+    {
+      "id": "radare2",
+      "name": "radare2",
+      "category_fr": "Analyse statique",
+      "category_en": "Static analysis",
+      "type": "system",
+      "package": "radare2",
+      "detect_command": "r2",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/radare2",
+      "install_method": "apt",
+      "description_fr": "Boîte à outils en ligne de commande pour l'ingénierie inverse.",
+      "description_en": "Command-line toolkit for reverse engineering.",
+      "when_to_use_fr": "Pour naviguer dans un binaire et automatiser des analyses.",
+      "when_to_use_en": "To navigate a binary and automate analysis.",
+      "when_not_to_use_fr": "Son interface est dense; commencez par l'aide intégrée.",
+      "when_not_to_use_en": "Its interface is dense; start with the built-in help.",
+      "basic_usage": "r2 -A sample",
+      "documentation_url": "https://book.rada.re/",
+      "interface": "CLI"
+    },
+    {
+      "id": "binwalk",
+      "name": "Binwalk",
+      "category_fr": "Firmware",
+      "category_en": "Firmware",
+      "type": "system",
+      "package": "binwalk",
+      "detect_command": "binwalk",
+      "version_args": [
+        "--version"
+      ],
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://packages.debian.org/stable/binwalk",
+      "install_method": "apt",
+      "description_fr": "Repère des signatures et structures dans les images firmware.",
+      "description_en": "Finds signatures and structures in firmware images.",
+      "when_to_use_fr": "Pour une première inspection d'une image firmware.",
+      "when_to_use_en": "For a first inspection of a firmware image.",
+      "when_not_to_use_fr": "N'extrayez pas un firmware inconnu sur un hôte de production.",
+      "when_not_to_use_en": "Do not extract an unknown firmware image on a production host.",
+      "basic_usage": "binwalk firmware.bin",
+      "documentation_url": "https://github.com/ReFirmLabs/binwalk",
+      "interface": "CLI"
+    },
+    {
+      "id": "ghidra",
+      "name": "Ghidra",
+      "category_fr": "Analyse statique",
+      "category_en": "Static analysis",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/NationalSecurityAgency/ghidra/releases",
+      "install_method": "github-release",
+      "asset_pattern": "ghidra_*_PUBLIC_*.zip",
+      "asset_exclude": [],
+      "asset_format": "zip",
+      "executable": "ghidraRun",
+      "requires_packages": [
+        "unzip",
+        "openjdk-21-jre"
+      ],
+      "java_major": 21,
+      "description_fr": "Un environnement d'analyse statique avec désassembleur et décompilateur.",
+      "description_en": "Static analysis suite with a disassembler and decompiler.",
+      "when_to_use_fr": "Pour explorer fonctions, références et pseudocode.",
+      "when_to_use_en": "To explore functions, references, and decompiled pseudocode.",
+      "when_not_to_use_fr": "Le pseudocode reste une hypothèse, à confirmer dans l'assembleur.",
+      "when_not_to_use_en": "Pseudocode is a hypothesis; confirm it against the assembly.",
+      "basic_usage": "./ghidraRun",
+      "documentation_url": "https://ghidra-sre.org/",
+      "interface": "GUI/CLI"
+    },
+    {
+      "id": "cutter",
+      "name": "Cutter",
+      "category_fr": "Analyse statique",
+      "category_en": "Static analysis",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/rizinorg/cutter/releases",
+      "install_method": "github-release",
+      "asset_pattern": "Cutter-*-Linux-x86_64.AppImage",
+      "asset_exclude": [
+        "qt5"
+      ],
+      "asset_format": "appimage",
+      "executable": "Cutter.AppImage",
+      "requires_packages": [],
+      "java_major": 0,
+      "description_fr": "Interface graphique de rétro-ingénierie basée sur Rizin.",
+      "description_en": "Graphical reverse-engineering interface powered by Rizin.",
+      "when_to_use_fr": "Pour une navigation visuelle dans le désassemblage.",
+      "when_to_use_en": "For visual navigation through disassembly.",
+      "when_not_to_use_fr": "L'AppImage nécessite un bureau graphique et FUSE sur certaines distributions.",
+      "when_not_to_use_en": "The AppImage needs a graphical desktop and FUSE on some systems.",
+      "basic_usage": "./Cutter.AppImage sample",
+      "documentation_url": "https://cutter.re/",
+      "interface": "GUI",
+      "version_args": [
+        "--appimage-version"
+      ]
+    },
+    {
+      "id": "pwndbg",
+      "name": "pwndbg",
+      "category_fr": "Débogage",
+      "category_en": "Debugging",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/pwndbg/pwndbg/releases",
+      "install_method": "github-release",
+      "asset_pattern": "pwndbg_*_x86_64-portable.tar.xz",
+      "asset_exclude": [
+        "lldb"
+      ],
+      "asset_format": "tar.xz",
+      "executable": "pwndbg",
+      "requires_packages": [
+        "xz-utils"
+      ],
+      "java_major": 0,
+      "description_fr": "Extensions et environnement portable pour le débogueur GDB.",
+      "description_en": "GDB enhancements distributed as a portable environment.",
+      "when_to_use_fr": "Pour mieux comprendre registres, pile et mémoire pendant le débogage.",
+      "when_to_use_en": "To inspect registers, stack, and memory while debugging.",
+      "when_not_to_use_fr": "Ce n'est pas une sandbox; n'exécutez que des cibles isolées.",
+      "when_not_to_use_en": "It is not a sandbox; run targets only in an isolated environment.",
+      "basic_usage": "pwndbg ./sample",
+      "documentation_url": "https://pwndbg.re/",
+      "interface": "CLI"
+    },
+    {
+      "id": "floss",
+      "name": "FLOSS",
+      "category_fr": "Analyse statique",
+      "category_en": "Static analysis",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/mandiant/flare-floss/releases",
+      "install_method": "github-release",
+      "asset_pattern": "floss-*-linux.zip",
+      "asset_exclude": [],
+      "asset_format": "zip",
+      "executable": "floss",
+      "requires_packages": [
+        "unzip"
+      ],
+      "java_major": 0,
+      "description_fr": "Décode des chaînes obfusquées présentes dans un binaire.",
+      "description_en": "Decodes obfuscated strings found in a binary.",
+      "when_to_use_fr": "Pour chercher des chaînes que strings ne révèle pas.",
+      "when_to_use_en": "To look for strings that strings does not reveal.",
+      "when_not_to_use_fr": "Les chaînes décodées ne prouvent pas une capacité particulière.",
+      "when_not_to_use_en": "Decoded strings do not prove a particular capability.",
+      "basic_usage": "floss sample.exe",
+      "documentation_url": "https://github.com/mandiant/flare-floss",
+      "interface": "CLI",
+      "version_args": [
+        "--version"
+      ]
+    },
+    {
+      "id": "capa",
+      "name": "capa",
+      "category_fr": "Analyse statique",
+      "category_en": "Static analysis",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/mandiant/capa/releases",
+      "install_method": "github-release",
+      "asset_pattern": "capa-*-linux.zip",
+      "asset_exclude": [
+        "arm64",
+        "py313"
+      ],
+      "asset_format": "zip",
+      "executable": "capa",
+      "requires_packages": [
+        "unzip"
+      ],
+      "java_major": 0,
+      "description_fr": "Associe des motifs de code à des capacités probables.",
+      "description_en": "Matches code patterns to likely capabilities.",
+      "when_to_use_fr": "Pour orienter l'analyse statique d'un binaire pris en charge.",
+      "when_to_use_en": "To guide static analysis of a supported binary.",
+      "when_not_to_use_fr": "Un résultat dépend des règles et n'est pas une preuve d'exécution.",
+      "when_not_to_use_en": "A match depends on rules and is not proof of execution.",
+      "basic_usage": "capa sample.exe",
+      "documentation_url": "https://github.com/mandiant/capa",
+      "interface": "CLI",
+      "version_args": [
+        "--version"
+      ]
+    }
+  ]
+}

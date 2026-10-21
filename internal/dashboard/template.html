@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title data-fr="RevKit — atelier de rétro-ingénierie" data-en="RevKit — reverse-engineering workstation">RevKit — atelier de rétro-ingénierie</title>
+  <style>
+    :root{color-scheme:dark;--bg:#101317;--panel:#171c22;--line:#2a323b;--text:#e9edf1;--muted:#9ca7b2;--green:#8cd6ae;--amber:#f0c674;--red:#ef8d8d;--blue:#93b9e8}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+    main{max-width:1120px;margin:auto;padding:40px 24px 72px}header{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:30px}
+    .brand{font-size:19px;font-weight:650;letter-spacing:.02em}.brand span{color:var(--muted);font-weight:400;margin-left:10px;font-size:14px}
+    button{border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:6px;padding:7px 12px;font:inherit;cursor:pointer}button:hover{border-color:var(--blue)}
+    h1{font-size:clamp(30px,4vw,44px);line-height:1.1;letter-spacing:-.04em;margin:0 0 14px}.lede{color:var(--muted);max-width:660px;margin:0 0 30px}
+    .workflow{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:24px 0 18px}.step{border:1px solid var(--line);background:var(--panel);padding:12px;border-radius:6px;font-size:13px;color:#d3dae1}.step:not(:last-child)::after{content:"→";position:absolute;color:var(--blue);transform:translate(13px,23px);font-size:15px}.step b{display:block;color:var(--blue);font-size:11px;margin-bottom:5px;text-transform:uppercase;letter-spacing:.07em}
+    .search{border-left:2px solid var(--blue);padding:8px 14px;margin:22px 0 36px;color:var(--muted)}.search code{color:var(--text);font-size:14px}.examples{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.examples code{border:1px solid var(--line);border-radius:4px;padding:4px 8px;font-size:12px}
+    h2{font-size:20px;margin:42px 0 15px;letter-spacing:-.02em}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}.card{border:1px solid var(--line);background:var(--panel);border-radius:7px;padding:16px;min-width:0}.card-head{display:flex;justify-content:space-between;gap:10px;align-items:start}.card h3{font-size:16px;margin:0}.meta{font-size:12px;color:var(--muted);margin:4px 0 13px}.badge{font-size:11px;padding:3px 7px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}.installed{color:var(--green)}.missing{color:var(--amber)}.broken{color:var(--red)}.card p{margin:8px 0;color:#c3cbd3;font-size:13px}.card .label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-top:13px}.card code{display:block;overflow-wrap:anywhere;background:#101317;border:1px solid var(--line);padding:7px 9px;border-radius:4px;margin-top:5px;font-size:12px;color:#c6d9ef}.card a{color:var(--blue);font-size:13px;text-decoration:none}.card a:hover{text-decoration:underline}.path{overflow-wrap:anywhere;color:var(--muted);font-size:11px;margin-top:5px}
+    footer{border-top:1px solid var(--line);margin-top:44px;padding-top:16px;color:var(--muted);font-size:12px}
+    @media(max-width:800px){.workflow{grid-template-columns:repeat(3,1fr)}.step:not(:last-child)::after{display:none}}@media(max-width:520px){main{padding:25px 15px}.workflow{grid-template-columns:repeat(2,1fr)}header{align-items:flex-start}}
+  </style>
+</head>
+<body>
+<main>
+  <header><div class="brand">RevKit <span data-fr="atelier de rétro-ingénierie" data-en="reverse-engineering workstation">atelier de rétro-ingénierie</span></div><button id="language" type="button" aria-label="Change language">FR | EN</button></header>
+  <h1 data-fr="Que veux-je comprendre ?" data-en="What do I want to know?">Que veux-je comprendre ?</h1>
+  <p class="lede" data-fr="Avancez par étapes. Chaque outil répond à une question précise ; vérifiez vos hypothèses avec des éléments indépendants." data-en="Work in stages. Each tool answers a specific question; verify hypotheses with independent evidence.">Avancez par étapes. Chaque outil répond à une question précise ; vérifiez vos hypothèses avec des éléments indépendants.</p>
+  <section class="workflow" aria-label="Analysis workflow">
+    <div class="step"><b>01</b><span data-fr="Identifier" data-en="Identify">Identifier</span></div><div class="step"><b>02</b><span data-fr="Inspecter la structure" data-en="Inspect structure">Inspecter la structure</span></div><div class="step"><b>03</b><span data-fr="Chercher des indices" data-en="Find clues">Chercher des indices</span></div><div class="step"><b>04</b><span data-fr="Analyse statique" data-en="Static analysis">Analyse statique</span></div><div class="step"><b>05</b><span data-fr="Analyse dynamique" data-en="Dynamic analysis">Analyse dynamique</span></div><div class="step"><b>06</b><span data-fr="Vérifier l'hypothèse" data-en="Verify hypothesis">Vérifier l'hypothèse</span></div>
+  </section>
+  <section class="search"><div data-fr="Pour apprendre, cherchez avec :" data-en="For focused learning, search for:">Pour apprendre, cherchez avec :</div><code data-fr="[objet] + [action voulue] + [contexte]" data-en="[object] + [wanted action] + [context]">[objet] + [action voulue] + [contexte]</code><div class="examples"><code>ELF identify architecture Linux</code><code>ELF inspect sections readelf</code><code>binary printable strings Linux</code><code>x86 debugger registers beginner</code></div><p data-fr="Lisez man TOOL, TOOL --help et la documentation officielle. Notez ce que vous avez observé avant de chercher une solution toute faite." data-en="Read man TOOL, TOOL --help, and the official documentation. Record what you observed before looking for a ready-made solution.">Lisez man TOOL, TOOL --help et la documentation officielle. Notez ce que vous avez observé avant de chercher une solution toute faite.</p></section>
+  <h2 data-fr="Catalogue des outils" data-en="Tool catalog">Catalogue des outils</h2>
+  <div class="grid">
+    {{range .Tools}}
+    <article class="card">
+      <div class="card-head"><h3>{{.Name}}</h3><span class="badge {{.Status}}" data-status="{{.Status}}" data-fr="{{if eq .Status "installed"}}installé{{else if eq .Status "missing"}}absent{{else}}incomplet{{end}}" data-en="{{.Status}}">{{if eq .Status "installed"}}installé{{else if eq .Status "missing"}}absent{{else}}incomplet{{end}}</span></div>
+      <div class="meta">{{.Interface}} · <span data-fr="{{.CategoryFR}}" data-en="{{.CategoryEN}}">{{.CategoryFR}}</span></div>
+      <p data-fr="{{.DescriptionFR}}" data-en="{{.DescriptionEN}}">{{.DescriptionFR}}</p>
+      <div class="label" data-fr="Quand l'utiliser" data-en="When to use">Quand l'utiliser</div><p data-fr="{{.WhenFR}}" data-en="{{.WhenEN}}">{{.WhenFR}}</p>
+      <div class="label" data-fr="À éviter quand" data-en="When not to use">À éviter quand</div><p data-fr="{{.AvoidFR}}" data-en="{{.AvoidEN}}">{{.AvoidFR}}</p>
+      <div class="label" data-fr="Exemple" data-en="Example">Exemple</div><code>{{.Usage}}</code>
+      <div class="path">{{.Version}}{{if .Path}} · {{.Path}}{{end}}</div>
+      <p><a href="{{.DocsURL}}" rel="noreferrer" data-fr="Documentation officielle ↗" data-en="Official documentation ↗">Documentation officielle ↗</a></p>
+    </article>
+    {{end}}
+  </div>
+  <footer data-fr="RevKit · L'analyse statique ne remplace pas l'isolation d'un laboratoire." data-en="RevKit · Static analysis does not replace an isolated lab.">RevKit · L'analyse statique ne remplace pas l'isolation d'un laboratoire.</footer>
+</main>
+<script>
+  (()=>{const button=document.getElementById('language');let language='fr';button.addEventListener('click',()=>{language=language==='fr'?'en':'fr';document.documentElement.lang=language;document.querySelectorAll('[data-'+language+']').forEach(el=>{el.textContent=el.dataset[language]})})})();
+</script>
+</body>
+</html>

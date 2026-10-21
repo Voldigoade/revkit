@@ -1,0 +1,25 @@
+# Local build output
+/bin/revkit
+/revkit
+/.cache/
+/build/
+/dist/
+/coverage.out
+*.prof
+
+# Installed workstation state
+/state.json
+/tools/
+/workspace/
+/dashboard/index.html
+/.env
+/.env.*
+
+# Reports, notes, temporary files, and editor metadata
+*.tmp
+*.test
+*.out
+*.log
+.DS_Store
+.idea/
+.vscode/
