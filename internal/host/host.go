@@ -9,6 +9,7 @@ import (
 
 type Info struct {
 	ID         string
+	IDLike     string
 	Arch       string
 	PrettyName string
 }
@@ -32,9 +33,9 @@ func ReadOSRelease(file, arch string) (Info, error) {
 		value = strings.Trim(value, `"'`)
 		values[key] = value
 	}
-	info := Info{ID: strings.ToLower(values["ID"]), Arch: arch, PrettyName: values["PRETTY_NAME"]}
+	info := Info{ID: strings.ToLower(values["ID"]), IDLike: strings.ToLower(values["ID_LIKE"]), Arch: arch, PrettyName: values["PRETTY_NAME"]}
 	if !Supported(info) {
-		return info, fmt.Errorf("unsupported host: RevKit v0.1.0 supports Debian and Ubuntu x86-64 only")
+		return info, fmt.Errorf("unsupported host: RevKit supports Linux x86-64 on Debian-family systems")
 	}
 	return info, nil
 }
@@ -43,5 +44,13 @@ func Supported(info Info) bool {
 	if info.Arch != "amd64" {
 		return false
 	}
-	return info.ID == "debian" || info.ID == "ubuntu"
+	if info.ID == "debian" || info.ID == "ubuntu" {
+		return true
+	}
+	for _, family := range strings.Fields(info.IDLike) {
+		if family == "debian" || family == "ubuntu" {
+			return true
+		}
+	}
+	return false
 }

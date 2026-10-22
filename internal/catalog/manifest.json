@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "tools": [
     {
       "id": "file",
@@ -25,7 +25,8 @@
       "when_not_to_use_en": "The result does not explain what the file does.",
       "basic_usage": "file sample.bin",
       "documentation_url": "https://man7.org/linux/man-pages/man1/file.1.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "core"
     },
     {
       "id": "readelf",
@@ -51,7 +52,8 @@
       "when_not_to_use_en": "For disassembly, use objdump or a dedicated disassembler.",
       "basic_usage": "readelf -h -S sample",
       "documentation_url": "https://sourceware.org/binutils/docs/binutils/readelf.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "core"
     },
     {
       "id": "objdump",
@@ -77,7 +79,8 @@
       "when_not_to_use_en": "Output can mislead without the correct architecture and context.",
       "basic_usage": "objdump -d -M intel sample",
       "documentation_url": "https://sourceware.org/binutils/docs/binutils/objdump.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "nm",
@@ -103,7 +106,8 @@
       "when_not_to_use_en": "A stripped binary may contain few symbols.",
       "basic_usage": "nm -C sample",
       "documentation_url": "https://sourceware.org/binutils/docs/binutils/nm.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "strings",
@@ -129,7 +133,8 @@
       "when_not_to_use_en": "A string alone does not prove it is used.",
       "basic_usage": "strings -a sample",
       "documentation_url": "https://sourceware.org/binutils/docs/binutils/strings.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "core"
     },
     {
       "id": "elfutils",
@@ -155,7 +160,8 @@
       "when_not_to_use_en": "It is not a debugger or interactive disassembler.",
       "basic_usage": "eu-readelf -h sample",
       "documentation_url": "https://sourceware.org/elfutils/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "checksec",
@@ -181,7 +187,8 @@
       "when_not_to_use_en": "Protections alone do not determine whether a program is safe.",
       "basic_usage": "checksec --file=sample",
       "documentation_url": "https://github.com/slimm609/checksec",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "xxd",
@@ -207,7 +214,8 @@
       "when_not_to_use_en": "For large edits, use a dedicated hex editor.",
       "basic_usage": "xxd -l 64 sample",
       "documentation_url": "https://man7.org/linux/man-pages/man1/xxd.1.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "hexedit",
@@ -233,7 +241,8 @@
       "when_not_to_use_en": "Never edit the only copy of a sample.",
       "basic_usage": "hexedit sample.bin",
       "documentation_url": "https://packages.debian.org/stable/hexedit",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "gdb",
@@ -259,7 +268,8 @@
       "when_not_to_use_en": "Do not run an unknown file on your everyday workstation.",
       "basic_usage": "gdb --args ./sample",
       "documentation_url": "https://sourceware.org/gdb/documentation/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "core"
     },
     {
       "id": "gdb-multiarch",
@@ -285,7 +295,8 @@
       "when_not_to_use_en": "Remote target debugging needs separate configuration.",
       "basic_usage": "gdb-multiarch ./sample",
       "documentation_url": "https://sourceware.org/gdb/documentation/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "strace",
@@ -311,7 +322,8 @@
       "when_not_to_use_en": "A trace does not explain the program's intent by itself.",
       "basic_usage": "strace -f -o trace.txt ./sample",
       "documentation_url": "https://strace.io/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "ltrace",
@@ -337,7 +349,8 @@
       "when_not_to_use_en": "Direct syscalls and static binaries often bypass ltrace.",
       "basic_usage": "ltrace ./sample",
       "documentation_url": "https://man7.org/linux/man-pages/man1/ltrace.1.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "lldb",
@@ -363,7 +376,8 @@
       "when_not_to_use_en": "GDB commands and extensions are not always compatible.",
       "basic_usage": "lldb ./sample",
       "documentation_url": "https://lldb.llvm.org/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "valgrind",
@@ -389,7 +403,8 @@
       "when_not_to_use_en": "It slows programs considerably and does not replace a debugger.",
       "basic_usage": "valgrind --leak-check=full ./sample",
       "documentation_url": "https://valgrind.org/docs/manual/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "qemu-user",
@@ -415,7 +430,8 @@
       "when_not_to_use_en": "It is not a security sandbox.",
       "basic_usage": "qemu-x86_64 ./foreign-sample",
       "documentation_url": "https://www.qemu.org/docs/master/user/main.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "gcc",
@@ -441,7 +457,8 @@
       "when_not_to_use_en": "Compilation does not make a sample safe to run.",
       "basic_usage": "gcc -g -O0 hello.c -o hello",
       "documentation_url": "https://gcc.gnu.org/onlinedocs/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "gcc-multilib",
@@ -467,7 +484,8 @@
       "when_not_to_use_en": "Skip this package if you do not need it.",
       "basic_usage": "gcc -m32 hello.c -o hello32",
       "documentation_url": "https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "clang",
@@ -493,7 +511,8 @@
       "when_not_to_use_en": "A different compiler may produce different code.",
       "basic_usage": "clang -g -O0 hello.c -o hello",
       "documentation_url": "https://clang.llvm.org/docs/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "llvm",
@@ -519,7 +538,8 @@
       "when_not_to_use_en": "Its syntax sometimes differs from GNU binutils.",
       "basic_usage": "llvm-objdump -d sample",
       "documentation_url": "https://llvm.org/docs/CommandGuide/llvm-objdump.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "nasm",
@@ -545,7 +565,8 @@
       "when_not_to_use_en": "It does not replace a C compiler.",
       "basic_usage": "nasm -f elf64 minimal.asm",
       "documentation_url": "https://www.nasm.us/docs.php",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "yasm",
@@ -571,7 +592,8 @@
       "when_not_to_use_en": "It is only needed for specific compatibility cases.",
       "basic_usage": "yasm -f elf64 minimal.asm",
       "documentation_url": "https://yasm.tortall.net/Documentation.html",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "python3",
@@ -597,7 +619,8 @@
       "when_not_to_use_en": "Do not run an unknown script without reviewing it.",
       "basic_usage": "python3 --version",
       "documentation_url": "https://docs.python.org/3/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "core"
     },
     {
       "id": "python3-pyelftools",
@@ -625,7 +648,8 @@
       "basic_usage": "python3 -c 'from elftools.elf.elffile import ELFFile'",
       "documentation_url": "https://github.com/eliben/pyelftools",
       "module_check": "elftools",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "python3-capstone",
@@ -653,7 +677,8 @@
       "basic_usage": "python3 -c 'import capstone'",
       "documentation_url": "https://www.capstone-engine.org/",
       "module_check": "capstone",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "yara",
@@ -679,7 +704,8 @@
       "when_not_to_use_en": "A rule match is not an attribution finding.",
       "basic_usage": "yara rules.yar sample.bin",
       "documentation_url": "https://yara.readthedocs.io/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "radare2",
@@ -705,7 +731,8 @@
       "when_not_to_use_en": "Its interface is dense; start with the built-in help.",
       "basic_usage": "r2 -A sample",
       "documentation_url": "https://book.rada.re/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "binwalk",
@@ -731,7 +758,35 @@
       "when_not_to_use_en": "Do not extract an unknown firmware image on a production host.",
       "basic_usage": "binwalk firmware.bin",
       "documentation_url": "https://github.com/ReFirmLabs/binwalk",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
+    },
+    {
+      "id": "die",
+      "name": "Detect It Easy",
+      "category_fr": "Identification",
+      "category_en": "Identification",
+      "type": "standalone",
+      "architectures": [
+        "amd64"
+      ],
+      "official_source": "https://github.com/horsicq/DIE-engine/releases",
+      "install_method": "github-release",
+      "asset_pattern": "Detect_It_Easy-*-x86_64.AppImage",
+      "asset_exclude": [],
+      "asset_format": "appimage",
+      "executable": "Detect_It_Easy.AppImage",
+      "requires_packages": [],
+      "description_fr": "Repère des compilateurs, packers et signatures de formats connus.",
+      "description_en": "Identifies likely compilers, packers, and known file signatures.",
+      "when_to_use_fr": "Pour obtenir des indices initiaux sur un exécutable inconnu.",
+      "when_to_use_en": "To gather initial clues about an unfamiliar executable.",
+      "when_not_to_use_fr": "Une signature est un indice, pas une preuve de provenance ou de comportement.",
+      "when_not_to_use_en": "A signature is a clue, not proof of origin or behavior.",
+      "basic_usage": "tools/gui/die/Detect_It_Easy.AppImage sample.exe",
+      "documentation_url": "https://github.com/horsicq/Detect-It-Easy/blob/master/docs/RUN.md",
+      "interface": "GUI",
+      "severity": "optional"
     },
     {
       "id": "ghidra",
@@ -761,7 +816,8 @@
       "when_not_to_use_en": "Pseudocode is a hypothesis; confirm it against the assembly.",
       "basic_usage": "./ghidraRun",
       "documentation_url": "https://ghidra-sre.org/",
-      "interface": "GUI/CLI"
+      "interface": "GUI/CLI",
+      "severity": "optional"
     },
     {
       "id": "cutter",
@@ -793,7 +849,8 @@
       "interface": "GUI",
       "version_args": [
         "--appimage-version"
-      ]
+      ],
+      "severity": "optional"
     },
     {
       "id": "pwndbg",
@@ -824,7 +881,8 @@
       "when_not_to_use_en": "It is not a sandbox; run targets only in an isolated environment.",
       "basic_usage": "pwndbg ./sample",
       "documentation_url": "https://pwndbg.re/",
-      "interface": "CLI"
+      "interface": "CLI",
+      "severity": "optional"
     },
     {
       "id": "floss",
@@ -856,7 +914,8 @@
       "interface": "CLI",
       "version_args": [
         "--version"
-      ]
+      ],
+      "severity": "optional"
     },
     {
       "id": "capa",
@@ -891,7 +950,8 @@
       "interface": "CLI",
       "version_args": [
         "--version"
-      ]
+      ],
+      "severity": "optional"
     }
   ]
 }

@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.27.3
+          cache: true
+      - name: Build release binary
+        env:
+          VERSION: ${{ github.ref_name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -trimpath -buildvcs=false \
+            -ldflags "-s -w -X main.version=$VERSION -X main.commit=$COMMIT" \
+            -o dist/revkit-linux-amd64 ./cmd/revkit
+          cd dist
+          sha256sum revkit-linux-amd64 > SHA256SUMS
+      - name: Attest release binary
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/revkit-linux-amd64
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/revkit-linux-amd64 dist/SHA256SUMS \
+            --title "$GITHUB_REF_NAME" \
+            --notes 'RevKit v0.2.0 adds a checksum-verified Linux x86-64 installer, offline static analysis for ELF, PE, ZIP, text, and unknown files, beginner-focused reports, and an interactive menu. Commands: install, update, doctor, list, analyze, dashboard, version, and uninstall. Major tools include Ghidra, Cutter, Pwndbg, FLOSS, capa, and Detect It Easy, plus curated APT tools. Tested on Ubuntu 24.04 and Debian stable. Known limitations: Linux x86-64 only, optional package availability varies by APT repository, and analysis never executes targets.'

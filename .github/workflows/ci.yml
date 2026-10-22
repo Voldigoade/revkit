@@ -2,22 +2,64 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.name }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 24.04
+            container: ""
+          - name: Debian stable
+            container: debian:stable-slim
+    container: ${{ matrix.container || null }}
     steps:
+      - name: Install quality-check tools
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            apt-get update
+            apt-get install -y --no-install-recommends ca-certificates git python3 shellcheck
+          else
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends ca-certificates git python3 shellcheck
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: 1.27.3
           cache: true
-      - run: test -z "$(gofmt -l $(git ls-files '*.go'))"
-      - run: bash -n install.sh
-      - run: go test ./...
-      - run: go vet ./...
-      - run: go build ./...
+      - name: Check formatting
+        run: test -z "$(gofmt -l $(git ls-files '*.go'))"
+      - name: Check shell scripts
+        run: |
+          sh -n install.sh tests/install.sh
+          shellcheck install.sh tests/install.sh
+          sh tests/install.sh
+      - name: Check tracked text
+        run: python3 scripts/check-tracked-text.py
+      - name: Install Go analyzers
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@2026.2.2
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - name: Test
+        run: go test ./...
+      - name: Test with race detector
+        run: go test -race ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Staticcheck
+        run: staticcheck ./...
+      - name: Check known vulnerabilities
+        run: govulncheck -scan=package ./...
+      - name: Build
+        run: go build ./...

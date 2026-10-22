@@ -8,6 +8,7 @@ import (
 )
 
 func TestResolveRootUsesDesktopDefaultAndExpandsCustomHome(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
 	home := filepath.Join(t.TempDir(), "home")
 	got, err := ResolveRoot("", home)
 	if err != nil || got != filepath.Join(home, "Desktop", "RevKit") {
@@ -16,6 +17,24 @@ func TestResolveRootUsesDesktopDefaultAndExpandsCustomHome(t *testing.T) {
 	got, err = ResolveRoot("~/Tools/RevKit", home)
 	if err != nil || got != filepath.Join(home, "Tools", "RevKit") {
 		t.Fatalf("ResolveRoot custom = %q, %v", got, err)
+	}
+}
+
+func TestResolveRootUsesLocalizedXDGDesktopAndCustomSpaces(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	bin := t.TempDir()
+	desktop := filepath.Join(home, "Bureau")
+	if err := os.WriteFile(filepath.Join(bin, "xdg-user-dir"), []byte("#!/bin/sh\nprintf '%s\\n' \""+desktop+"\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin)
+	got, err := ResolveRoot("", home)
+	if err != nil || got != filepath.Join(desktop, "RevKit") {
+		t.Fatalf("ResolveRoot localized default = %q, %v", got, err)
+	}
+	got, err = ResolveRoot("~/Tools/Reverse Lab/RevKit", home)
+	if err != nil || got != filepath.Join(home, "Tools", "Reverse Lab", "RevKit") {
+		t.Fatalf("ResolveRoot spaced custom = %q, %v", got, err)
 	}
 }
 
@@ -100,6 +119,18 @@ func TestStateRoundTrip(t *testing.T) {
 	}
 	if out.Root != in.Root || out.Tools["capa"].Version != "10.0.0" {
 		t.Fatalf("Load() = %#v, want %#v", out, in)
+	}
+}
+
+func TestSelectedRootConfigPreservesCustomPathWithSpaces(t *testing.T) {
+	config := ConfigPath(t.TempDir(), filepath.Join(t.TempDir(), "cfg"))
+	root := filepath.Join(t.TempDir(), "Tools", "Reverse Lab", "RevKit")
+	if err := SaveSelectedRoot(config, root); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadSelectedRoot(config)
+	if err != nil || got != root {
+		t.Fatalf("LoadSelectedRoot() = %q, %v; want %q", got, err, root)
 	}
 }
 

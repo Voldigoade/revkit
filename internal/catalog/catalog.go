@@ -23,6 +23,7 @@ type Catalog struct {
 type Tool struct {
 	ID              string   `json:"id"`
 	Name            string   `json:"name"`
+	Severity        string   `json:"severity"`
 	CategoryFR      string   `json:"category_fr"`
 	CategoryEN      string   `json:"category_en"`
 	Type            string   `json:"type"`
@@ -76,7 +77,7 @@ func Load() (Catalog, error) {
 }
 
 func (c Catalog) Validate() error {
-	if c.SchemaVersion != 1 {
+	if c.SchemaVersion != 2 {
 		return fmt.Errorf("unsupported schema version %d", c.SchemaVersion)
 	}
 	if len(c.Tools) == 0 {
@@ -96,6 +97,9 @@ func (c Catalog) Validate() error {
 		seen[t.ID] = true
 		if t.Type != "system" && t.Type != "standalone" {
 			return fmt.Errorf("tool %q has invalid type %q", t.ID, t.Type)
+		}
+		if t.Severity != "core" && t.Severity != "optional" {
+			return fmt.Errorf("tool %q has invalid severity %q", t.ID, t.Severity)
 		}
 		if t.Interface != "CLI" && t.Interface != "GUI" && t.Interface != "GUI/CLI" {
 			return fmt.Errorf("tool %q has invalid interface %q", t.ID, t.Interface)

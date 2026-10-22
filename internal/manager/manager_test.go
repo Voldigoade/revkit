@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -81,7 +82,7 @@ func (r *packageRunner) Output(_ context.Context, name string, args ...string) (
 		if r.installed {
 			return []byte("installed\t1.0\n"), nil
 		}
-		return []byte("unknown\t\n"), nil
+		return nil, exec.Command("false").Run()
 	case "apt-cache":
 		return []byte("Candidate: 1.0\n"), nil
 	default:
@@ -93,6 +94,45 @@ type unavailablePackageRunner struct{}
 
 func (unavailablePackageRunner) Run(context.Context, string, ...string) error {
 	return fmt.Errorf("unexpected APT action")
+}
+
+type failingOptionalPackageRunner struct{}
+
+func (failingOptionalPackageRunner) Run(_ context.Context, name string, args ...string) error {
+	if name == "sudo" && len(args) > 0 && args[0] == "apt-get" {
+		args = args[1:]
+		name = "apt-get"
+	}
+	if name == "apt-get" && len(args) > 0 && args[0] == "update" {
+		return nil
+	}
+	return fmt.Errorf("simulated APT failure")
+}
+
+func (failingOptionalPackageRunner) Output(_ context.Context, name string, _ ...string) ([]byte, error) {
+	if name == "dpkg-query" {
+		return []byte("not-installed\t"), nil
+	}
+	if name == "apt-cache" {
+		return []byte("Candidate: 1.0\n"), nil
+	}
+	return nil, fmt.Errorf("unexpected command %s", name)
+}
+
+func TestOptionalPackageInstallFailureIsWarning(t *testing.T) {
+	var output strings.Builder
+	manager := Manager{
+		Root: t.TempDir(), Catalog: catalog.Catalog{Tools: []catalog.Tool{{
+			ID: "optional", Name: "Optional", Severity: "optional", Type: "system", Package: "optional", DetectCommand: "optional", Architectures: []string{"amd64"},
+		}}},
+		State: &state.State{Tools: map[string]state.ToolState{}}, Runner: failingOptionalPackageRunner{}, Out: &output,
+	}
+	if err := manager.Sync(context.Background(), false); err != nil {
+		t.Fatalf("optional APT failure was fatal: %v", err)
+	}
+	if !strings.Contains(output.String(), "Optional APT packages optional could not be installed") {
+		t.Fatalf("optional package warning was not shown: %s", output.String())
+	}
 }
 
 func (unavailablePackageRunner) Output(_ context.Context, name string, _ ...string) ([]byte, error) {

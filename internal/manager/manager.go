@@ -139,6 +139,17 @@ func (m *Manager) syncPackages(ctx context.Context, update bool) (map[string]boo
 
 	packages := m.Catalog.Packages()
 	infos := make(map[string]packageInfo, len(packages))
+	corePackages := make(map[string]bool, len(packages))
+	for _, tool := range m.Catalog.Tools {
+		if tool.Severity == "core" {
+			if tool.Type == "system" {
+				corePackages[tool.Package] = true
+			}
+			for _, pkg := range tool.RequiresPackage {
+				corePackages[pkg] = true
+			}
+		}
+	}
 	for _, pkg := range packages {
 		info, err := m.packageInfo(ctx, pkg)
 		if err != nil {
@@ -163,7 +174,10 @@ func (m *Manager) syncPackages(ctx context.Context, update bool) (map[string]boo
 		info := infos[pkg]
 		if !info.Installed && (info.Candidate == "" || info.Candidate == "(none)") {
 			unavailable[pkg] = true
-			fmt.Fprintf(m.out(), "⚠ APT package %s is unavailable in configured repositories; skipping it.\n", pkg)
+			if corePackages[pkg] {
+				return nil, fmt.Errorf("core APT package %s is unavailable in configured repositories", pkg)
+			}
+			fmt.Fprintf(m.out(), "⚠ Optional APT package %s is unavailable in configured repositories; skipping it.\n", pkg)
 			continue
 		}
 		switch PackageAction(info.Installed, reinstall[pkg], info.Version, info.Candidate) {
@@ -177,19 +191,30 @@ func (m *Manager) syncPackages(ctx context.Context, update bool) (map[string]boo
 	}
 	for _, group := range []struct {
 		args []string
-		pkgs []string
+		pkgs map[bool][]string
 	}{
-		{args: []string{"install", "-y"}, pkgs: missing},
-		{args: []string{"install", "-y", "--only-upgrade"}, pkgs: outdated},
-		{args: []string{"install", "-y", "--reinstall"}, pkgs: broken},
+		{args: []string{"install", "-y"}, pkgs: splitPackageSeverity(missing, corePackages)},
+		{args: []string{"install", "-y", "--only-upgrade"}, pkgs: splitPackageSeverity(outdated, corePackages)},
+		{args: []string{"install", "-y", "--reinstall"}, pkgs: splitPackageSeverity(broken, corePackages)},
 	} {
-		if len(group.pkgs) == 0 {
-			continue
-		}
-		sort.Strings(group.pkgs)
-		args := append(group.args, group.pkgs...)
-		if err := m.aptRun(ctx, args...); err != nil {
-			return nil, fmt.Errorf("install APT packages %s: %w", strings.Join(group.pkgs, ", "), err)
+		for _, core := range []bool{true, false} {
+			pkgs := group.pkgs[core]
+			if len(pkgs) == 0 {
+				continue
+			}
+			sort.Strings(pkgs)
+			args := append(group.args, pkgs...)
+			if err := m.aptRun(ctx, args...); err != nil {
+				if core {
+					return nil, fmt.Errorf("install core APT packages %s: %w", strings.Join(pkgs, ", "), err)
+				}
+				fmt.Fprintf(m.out(), "⚠ Optional APT packages %s could not be installed: %v\n", strings.Join(pkgs, ", "), err)
+				if len(group.args) == 2 {
+					for _, pkg := range pkgs {
+						unavailable[pkg] = true
+					}
+				}
+			}
 		}
 	}
 	if len(missing)+len(outdated)+len(broken) == 0 && len(unavailable) == 0 {
@@ -198,19 +223,27 @@ func (m *Manager) syncPackages(ctx context.Context, update bool) (map[string]boo
 	return unavailable, nil
 }
 
+func splitPackageSeverity(packages []string, corePackages map[string]bool) map[bool][]string {
+	result := map[bool][]string{true: {}, false: {}}
+	for _, pkg := range packages {
+		result[corePackages[pkg]] = append(result[corePackages[pkg]], pkg)
+	}
+	return result
+}
+
 func (m *Manager) packageInfo(ctx context.Context, pkg string) (packageInfo, error) {
 	data, err := m.Runner.Output(ctx, "dpkg-query", "-W", "--showformat=${db:Status-Status}\t${Version}", "--", pkg)
 	info := packageInfo{}
 	if err != nil {
 		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
-			return info, nil
+		if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
+			return info, err
 		}
-		return info, err
-	}
-	fields := strings.SplitN(strings.TrimSpace(string(data)), "\t", 2)
-	if len(fields) == 2 && fields[0] == "installed" {
-		info.Installed, info.Version = true, fields[1]
+	} else {
+		fields := strings.SplitN(strings.TrimSpace(string(data)), "\t", 2)
+		if len(fields) == 2 && fields[0] == "installed" {
+			info.Installed, info.Version = true, fields[1]
+		}
 	}
 	data, err = m.Runner.Output(ctx, "apt-cache", "policy", pkg)
 	if err != nil {
@@ -268,14 +301,14 @@ func (m *Manager) syncStandalone(ctx context.Context, update bool, unavailable m
 			}
 		}
 		if len(missingDependencies) > 0 {
-			fmt.Fprintf(m.out(), "⚠ %s requires unavailable APT package(s) %s; skipping release management.\n", tool.Name, strings.Join(missingDependencies, ", "))
+			fmt.Fprintf(m.out(), "⚠ %s requires APT package(s) that are unavailable or could not be installed (%s); skipping release management.\n", tool.Name, strings.Join(missingDependencies, ", "))
 			continue
 		}
 		check := checker.Tool(tool)
 		previous := m.State.Tools[tool.ID]
 		stale := state.NeedsCheck(now, previous.CheckedAt)
 		if check.Status == "installed" && !update && !stale {
-			fmt.Fprintf(m.out(), "✓ %s — installed, checked %s\n", tool.Name, previous.Version)
+			fmt.Fprintf(m.out(), "✓ %s - installed, checked %s\n", tool.Name, previous.Version)
 			continue
 		}
 		if m.DryRun {
@@ -284,21 +317,33 @@ func (m *Manager) syncStandalone(ctx context.Context, update bool, unavailable m
 		}
 		release, err := m.fetchLatest(ctx, tool)
 		if err != nil {
+			if tool.Severity == "optional" {
+				fmt.Fprintf(m.out(), "⚠ Optional tool %s could not be checked: %v\n", tool.Name, err)
+				continue
+			}
 			return fmt.Errorf("check %s release: %w", tool.Name, err)
 		}
 		version := strings.TrimPrefix(release.TagName, "v")
 		if version == "" {
+			if tool.Severity == "optional" {
+				fmt.Fprintf(m.out(), "⚠ Optional tool %s release has no version tag; skipping it.\n", tool.Name)
+				continue
+			}
 			return fmt.Errorf("%s release has no tag", tool.Name)
 		}
 		if check.Status == "installed" && previous.Version != "" && state.CompareVersions(previous.Version, version) > 0 {
 			previous.CheckedAt = now
 			m.State.Tools[tool.ID] = previous
 			checker.State = *m.State
-			fmt.Fprintf(m.out(), "✓ %s — installed %s is newer than upstream %s; keeping it\n", tool.Name, previous.Version, version)
+			fmt.Fprintf(m.out(), "✓ %s - installed %s is newer than upstream %s; keeping it\n", tool.Name, previous.Version, version)
 			continue
 		}
 		asset, err := catalog.SelectAsset(tool, release.Assets, "amd64")
 		if err != nil {
+			if tool.Severity == "optional" {
+				fmt.Fprintf(m.out(), "⚠ Optional tool %s has no verified amd64 release asset: %v\n", tool.Name, err)
+				continue
+			}
 			return err
 		}
 		action := state.Decide(check.Status == "installed", check.Status == "broken", previous.Version, version)
@@ -308,7 +353,7 @@ func (m *Manager) syncStandalone(ctx context.Context, update bool, unavailable m
 		if action == state.ActionNone && previous.Digest == asset.Digest {
 			previous.CheckedAt = now
 			m.State.Tools[tool.ID] = previous
-			fmt.Fprintf(m.out(), "✓ %s — up to date (%s)\n", tool.Name, version)
+			fmt.Fprintf(m.out(), "✓ %s - up to date (%s)\n", tool.Name, version)
 			checker.State = *m.State
 			continue
 		}
@@ -318,6 +363,10 @@ func (m *Manager) syncStandalone(ctx context.Context, update bool, unavailable m
 		fmt.Fprintf(m.out(), "%s %s (%s)\n", action, tool.Name, version)
 		path, err := m.installAsset(ctx, tool, asset)
 		if err != nil {
+			if tool.Severity == "optional" {
+				fmt.Fprintf(m.out(), "⚠ Optional tool %s could not be installed: %v\n", tool.Name, err)
+				continue
+			}
 			return fmt.Errorf("install %s: %w", tool.Name, err)
 		}
 		m.State.Tools[tool.ID] = state.ToolState{Version: version, Digest: asset.Digest, Path: path, CheckedAt: now}
@@ -343,7 +392,7 @@ func (m *Manager) fetchLatest(ctx context.Context, tool catalog.Tool) (release, 
 		return release{}, err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "RevKit/0.1.0")
+	request.Header.Set("User-Agent", "RevKit")
 	client := m.HTTPClient
 	if client == nil {
 		client = &http.Client{Timeout: 2 * time.Minute}

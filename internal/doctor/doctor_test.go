@@ -28,6 +28,34 @@ func TestSystemCheckReportsInstalledPathAndVersion(t *testing.T) {
 	}
 }
 
+func TestUnavailableOptionalPackageIsWarningAndDoesNotSuggestInstallLoop(t *testing.T) {
+	tool := catalog.Tool{ID: "radare2", Name: "radare2", Severity: "optional", Type: "system", Package: "radare2", DetectCommand: "r2", Architectures: []string{"amd64"}}
+	checker := Checker{
+		Root:             t.TempDir(),
+		LookPath:         func(string) (string, error) { return "", os.ErrNotExist },
+		PackageInstalled: func(string) (bool, error) { return false, nil },
+		PackageCandidate: func(string) (string, error) { return "(none)", nil },
+	}
+	got := checker.Tool(tool)
+	if got.Status != "unavailable" || IsFatal(got) || !strings.Contains(got.Detail, "configured repositories") {
+		t.Fatalf("optional package check = %#v", got)
+	}
+	if strings.Contains(strings.ToLower(got.Suggested), "revkit install") {
+		t.Fatalf("unavailable package suggests an install loop: %q", got.Suggested)
+	}
+}
+
+func TestDoctorFailsOnlyForCoreToolProblems(t *testing.T) {
+	if !IsFatal(Check{Tool: catalog.Tool{Severity: "core"}, Status: "missing"}) {
+		t.Fatal("missing core tool was not fatal")
+	}
+	for _, status := range []string{"missing", "unavailable", "broken"} {
+		if IsFatal(Check{Tool: catalog.Tool{Severity: "optional"}, Status: status}) {
+			t.Errorf("optional %s tool was fatal", status)
+		}
+	}
+}
+
 func TestSystemCheckRequiresTheCatalogPackage(t *testing.T) {
 	command := filepath.Join(t.TempDir(), "gcc")
 	if err := os.WriteFile(command, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {

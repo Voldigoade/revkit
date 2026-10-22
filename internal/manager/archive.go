@@ -146,7 +146,7 @@ func extractTar(source io.Reader, destination string) error {
 			if err := safeMkdirAll(destination, name); err != nil {
 				return err
 			}
-		case tar.TypeReg, tar.TypeRegA:
+		case tar.TypeReg:
 			perm := os.FileMode(header.Mode).Perm() & 0755
 			if perm == 0 {
 				perm = 0644

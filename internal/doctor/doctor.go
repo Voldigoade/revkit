@@ -20,6 +20,7 @@ import (
 
 type Check struct {
 	Tool          catalog.Tool
+	Severity      string
 	Status        string
 	Version       string
 	Path          string
@@ -35,6 +36,7 @@ type Checker struct {
 	LookPath         func(string) (string, error)
 	Output           func(string, ...string) ([]byte, error)
 	PackageInstalled func(string) (bool, error)
+	PackageCandidate func(string) (string, error)
 }
 
 func New(root string, st state.State) Checker {
@@ -48,7 +50,9 @@ func New(root string, st state.State) Checker {
 			return cmd.CombinedOutput()
 		},
 		PackageInstalled: func(pkg string) (bool, error) {
-			cmd := exec.Command("dpkg-query", "-W", "-f=${db:Status-Status}", "--", pkg)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, "dpkg-query", "-W", "-f=${db:Status-Status}", "--", pkg)
 			out, err := cmd.Output()
 			if err != nil {
 				var exitErr *exec.ExitError
@@ -59,7 +63,26 @@ func New(root string, st state.State) Checker {
 			}
 			return strings.TrimSpace(string(out)) == "installed", nil
 		},
+		PackageCandidate: func(pkg string) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			out, err := exec.CommandContext(ctx, "apt-cache", "policy", pkg).Output()
+			if err != nil {
+				return "", err
+			}
+			for _, line := range strings.Split(string(out), "\n") {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "Candidate:") {
+					return strings.TrimSpace(strings.TrimPrefix(line, "Candidate:")), nil
+				}
+			}
+			return "", fmt.Errorf("APT candidate is not reported")
+		},
 	}
+}
+
+func IsFatal(check Check) bool {
+	return check.Tool.Severity != "optional" && check.Status != "installed"
 }
 
 func (c Checker) All(tools []catalog.Tool) []Check {
@@ -71,7 +94,7 @@ func (c Checker) All(tools []catalog.Tool) []Check {
 }
 
 func (c Checker) Tool(tool catalog.Tool) Check {
-	check := Check{Tool: tool, Status: "missing", ExpectedArch: "x86_64", Version: "—"}
+	check := Check{Tool: tool, Severity: tool.Severity, Status: "missing", ExpectedArch: "x86_64", Version: "n/a"}
 	if !hasArch(tool.Architectures, runtime.GOARCH) {
 		check.Status = "broken"
 		check.Detail = "tool manifest does not support this host architecture"
@@ -95,8 +118,23 @@ func (c Checker) checkSystem(check Check) Check {
 			return check
 		}
 		if !installed {
+			if c.PackageCandidate != nil {
+				candidate, candidateErr := c.PackageCandidate(tool.Package)
+				if candidateErr != nil {
+					check.Status = "broken"
+					check.Detail = fmt.Sprintf("cannot inspect APT candidate for %s: %v", tool.Package, candidateErr)
+					check.Suggested = "check the configured APT repositories"
+					return check
+				}
+				if candidate == "" || candidate == "(none)" {
+					check.Status = "unavailable"
+					check.Detail = fmt.Sprintf("APT package %s is unavailable in configured repositories", tool.Package)
+					check.Suggested = "enable an official repository that provides it, or skip this optional tool"
+					return check
+				}
+			}
 			check.Detail = fmt.Sprintf("APT package %s is not installed", tool.Package)
-			check.Suggested = "run revkit install"
+			check.Suggested = "run revkit install to install this catalog package"
 			return check
 		}
 	}
@@ -110,7 +148,7 @@ func (c Checker) checkSystem(check Check) Check {
 	if lookupErr != nil {
 		check.Status = "broken"
 		check.Detail = "APT package is installed but the command or module is unavailable"
-		check.Suggested = "run revkit install to repair the package"
+		check.Suggested = "reinstall the package from its configured official APT repository"
 		return check
 	}
 	check.Path = path
@@ -144,6 +182,21 @@ func (c Checker) checkSystem(check Check) Check {
 func (c Checker) checkStandalone(check Check) Check {
 	tool := check.Tool
 	entry, recorded := c.State.Tools[tool.ID]
+	if c.PackageInstalled != nil && len(tool.RequiresPackage) > 0 {
+		for _, pkg := range tool.RequiresPackage {
+			installed, err := c.PackageInstalled(pkg)
+			if err != nil || installed || c.PackageCandidate == nil {
+				continue
+			}
+			candidate, candidateErr := c.PackageCandidate(pkg)
+			if candidateErr == nil && (candidate == "" || candidate == "(none)") {
+				check.Status = "unavailable"
+				check.Detail = fmt.Sprintf("required APT package %s is unavailable in configured repositories", pkg)
+				check.Suggested = "enable an official repository that provides it, or skip this optional tool"
+				return check
+			}
+		}
+	}
 	dir := "cli"
 	if tool.Interface != "CLI" {
 		dir = "gui"
@@ -158,7 +211,7 @@ func (c Checker) checkStandalone(check Check) Check {
 	}
 	if path == "" {
 		check.Detail = "standalone tool is not installed"
-		check.Suggested = "run revkit install"
+		check.Suggested = "run revkit install to install this optional upstream tool"
 		return check
 	}
 	check.Path = path
@@ -318,7 +371,7 @@ func javaMajor(output string) int {
 func firstLine(text string) string {
 	line := strings.TrimSpace(strings.SplitN(text, "\n", 2)[0])
 	if line == "" {
-		return "—"
+		return "n/a"
 	}
 	return line
 }

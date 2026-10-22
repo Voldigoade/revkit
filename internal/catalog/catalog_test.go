@@ -16,12 +16,23 @@ func TestLoadEmbeddedManifest(t *testing.T) {
 	if err := c.Validate(); err != nil {
 		t.Fatal(err)
 	}
+	core, optional := 0, 0
+	for _, tool := range c.Tools {
+		if tool.Severity == "core" {
+			core++
+		} else if tool.Severity == "optional" {
+			optional++
+		}
+	}
+	if core == 0 || optional == 0 {
+		t.Fatalf("catalog severity counts: core=%d optional=%d", core, optional)
+	}
 }
 
 func TestValidateRejectsDuplicateIDsAndMissingTranslations(t *testing.T) {
-	c := Catalog{SchemaVersion: 1, Tools: []Tool{
-		{ID: "same", Name: "One", Type: "system", Interface: "CLI", CategoryFR: "CLI", CategoryEN: "CLI", Package: "one", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/one", DocsURL: "https://example.org/docs", Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when", AvoidEN: "avoid", AvoidFR: "avoid", Usage: "one"},
-		{ID: "same", Name: "Two", Type: "system", Interface: "CLI", CategoryFR: "CLI", CategoryEN: "CLI", Package: "two", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/two", DocsURL: "https://example.org/docs", Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when", AvoidEN: "avoid", AvoidFR: "avoid", Usage: "two"},
+	c := Catalog{SchemaVersion: 2, Tools: []Tool{
+		{ID: "same", Name: "One", Severity: "core", Type: "system", Interface: "CLI", CategoryFR: "CLI", CategoryEN: "CLI", Package: "one", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/one", DocsURL: "https://example.org/docs", Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when", AvoidEN: "avoid", AvoidFR: "avoid", Usage: "one"},
+		{ID: "same", Name: "Two", Severity: "optional", Type: "system", Interface: "CLI", CategoryFR: "CLI", CategoryEN: "CLI", Package: "two", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/two", DocsURL: "https://example.org/docs", Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when", AvoidEN: "avoid", AvoidFR: "avoid", Usage: "two"},
 	}}
 	if err := c.Validate(); err == nil || !strings.Contains(err.Error(), "duplicate") {
 		t.Fatalf("Validate() error = %v, want duplicate ID error", err)
@@ -30,7 +41,7 @@ func TestValidateRejectsDuplicateIDsAndMissingTranslations(t *testing.T) {
 
 func TestValidateRejectsUnsafePathsAndUnsupportedArchitectures(t *testing.T) {
 	base := Tool{
-		ID: "sample", Name: "Sample", CategoryFR: "Outil", CategoryEN: "Tool", Type: "system", Interface: "CLI",
+		ID: "sample", Name: "Sample", Severity: "optional", CategoryFR: "Outil", CategoryEN: "Tool", Type: "system", Interface: "CLI",
 		Package: "sample", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/sample", DocsURL: "https://example.org/docs",
 		Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when",
 		AvoidEN: "avoid", AvoidFR: "avoid", Usage: "sample FILE",
@@ -42,14 +53,31 @@ func TestValidateRejectsUnsafePathsAndUnsupportedArchitectures(t *testing.T) {
 		{"path traversal id", func(t *Tool) { t.ID = "../escape" }},
 		{"unsupported architecture", func(t *Tool) { t.Architectures = []string{"arm64"} }},
 		{"missing English category", func(t *Tool) { t.CategoryEN = "" }},
+		{"invalid severity", func(t *Tool) { t.Severity = "recommended" }},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			tool := base
 			tc.edit(&tool)
-			if err := (Catalog{SchemaVersion: 1, Tools: []Tool{tool}}).Validate(); err == nil {
+			if err := (Catalog{SchemaVersion: 2, Tools: []Tool{tool}}).Validate(); err == nil {
 				t.Fatal("Validate() accepted invalid catalog data")
 			}
 		})
+	}
+}
+
+func TestValidateRequiresExplicitSeverity(t *testing.T) {
+	tool := Tool{
+		ID: "sample", Name: "Sample", Severity: "core", CategoryFR: "Outil", CategoryEN: "Tool", Type: "system", Interface: "CLI",
+		Package: "sample", InstallMethod: "apt", OfficialSource: "https://packages.debian.org/stable/sample", DocsURL: "https://example.org/docs",
+		Architectures: []string{"amd64"}, DescriptionEN: "description", DescriptionFR: "description", WhenEN: "when", WhenFR: "when",
+		AvoidEN: "avoid", AvoidFR: "avoid", Usage: "sample FILE",
+	}
+	if err := (Catalog{SchemaVersion: 2, Tools: []Tool{tool}}).Validate(); err != nil {
+		t.Fatalf("valid severity rejected: %v", err)
+	}
+	tool.Severity = ""
+	if err := (Catalog{SchemaVersion: 2, Tools: []Tool{tool}}).Validate(); err == nil {
+		t.Fatal("catalog accepted a tool without severity")
 	}
 }
 
@@ -82,6 +110,25 @@ func TestSelectAssetRejectsUntrustedURLAndMissingDigest(t *testing.T) {
 		if _, err := SelectAsset(tool, []Asset{asset}, "amd64"); err == nil {
 			t.Fatalf("SelectAsset accepted unsafe asset %#v", asset)
 		}
+	}
+}
+
+func TestDetectItEasySelectsOfficialX8664AppImage(t *testing.T) {
+	catalogue, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tool, ok := catalogue.Find("die")
+	if !ok || tool.Severity != "optional" {
+		t.Fatal("Detect It Easy is missing from the optional tool catalog")
+	}
+	assets := []Asset{
+		{Name: "Detect_It_Easy-3.21-aarch64.AppImage", URL: "https://github.com/horsicq/DIE-engine/releases/download/3.21/Detect_It_Easy-3.21-aarch64.AppImage", Digest: "sha256:" + strings.Repeat("a", 64)},
+		{Name: "Detect_It_Easy-3.21-x86_64.AppImage", URL: "https://github.com/horsicq/DIE-engine/releases/download/3.21/Detect_It_Easy-3.21-x86_64.AppImage", Digest: "sha256:" + strings.Repeat("b", 64)},
+	}
+	selected, err := SelectAsset(tool, assets, "amd64")
+	if err != nil || selected.Name != assets[1].Name {
+		t.Fatalf("SelectAsset() = %#v, %v; want the official x86-64 AppImage", selected, err)
 	}
 }
 

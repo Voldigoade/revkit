@@ -1,159 +1,129 @@
-#!/usr/bin/env bash
-set -Eeuo pipefail
-
-source_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
-root="${HOME:?HOME is not set}/Desktop/RevKit"
-dry_run=0
+#!/bin/sh
+set -eu
 
 usage() {
-  printf 'Usage: %s [--root PATH] [--dry-run]\n' "${0##*/}"
+    printf 'Usage: install.sh [--root PATH] [--bin PATH]\n'
+    printf 'Install the latest stable RevKit release for Linux x86-64.\n'
 }
 
-while (($#)); do
-  case "$1" in
-    --root)
-      (($# >= 2)) || { usage >&2; exit 2; }
-      root=$2
-      shift 2
-      ;;
-    --dry-run)
-      dry_run=1
-      shift
-      ;;
-    -h|--help)
-      usage
-      exit 0
-      ;;
-    *)
-      printf 'Unknown option: %s\n' "$1" >&2
-      usage >&2
-      exit 2
-      ;;
-  esac
+root=
+bin_path=${REVKIT_BIN:-${HOME:?HOME is not set}/.local/bin/revkit}
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --root)
+            [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }
+            root=$2
+            shift 2
+            ;;
+        --bin)
+            [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }
+            bin_path=$2
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            printf 'Unknown option: %s\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+    esac
 done
 
-case "$root" in
-  '~') root=$HOME ;;
-  '~/'*) root="$HOME/${root#\~/}" ;;
-  '~'*) printf 'Named-user paths are not supported: %s\n' "$root" >&2; exit 2 ;;
-  /*) ;;
-  *) root="$PWD/$root" ;;
+case "$(uname -s)" in
+    Linux) ;;
+    *) printf 'RevKit supports Linux x86-64 only.\n' >&2; exit 2 ;;
 esac
-root=$(realpath -m -- "$root")
+case "$(uname -m)" in
+    x86_64|amd64) ;;
+    *) printf 'RevKit supports x86-64 only.\n' >&2; exit 2 ;;
+esac
 
-if [[ ! -r /etc/os-release ]]; then
-  printf 'Cannot identify this operating system.\n' >&2
-  exit 2
+if [ ! -r /etc/os-release ]; then
+    printf 'Cannot read /etc/os-release.\n' >&2
+    exit 2
 fi
 # shellcheck disable=SC1091
-source /etc/os-release
-os_id=${ID,,}
-if [[ "$os_id" != debian && "$os_id" != ubuntu ]]; then
-  printf 'RevKit supports Debian and Ubuntu only.\n' >&2
-  exit 2
-fi
-if [[ $(uname -m) != x86_64 ]]; then
-  printf 'RevKit v0.1.0 supports x86-64 only.\n' >&2
-  exit 2
-fi
+. /etc/os-release
+case " ${ID:-} ${ID_LIKE:-} " in
+    *" debian "*|*" ubuntu "*) ;;
+    *) printf 'RevKit requires a Debian-family APT system.\n' >&2; exit 2 ;;
+esac
 
-if ! command -v go >/dev/null 2>&1; then
-  if ((dry_run)); then
-    printf 'Go is required to build RevKit; dry-run made no changes.\n' >&2
+if ! command -v sha256sum >/dev/null 2>&1; then
+    printf 'sha256sum is required to verify the release.\n' >&2
     exit 1
-  fi
-  if [[ ! -x /usr/bin/apt-get ]]; then
-    printf 'Go is required. Install Go 1.18 or newer, then run this script again.\n' >&2
+fi
+if ! command -v curl >/dev/null 2>&1; then
+    printf 'curl is required to download the verified release.\n' >&2
     exit 1
-  fi
-  if ((EUID == 0)); then
-    apt-get update
-    apt-get install -y golang-go
-  else
-    command -v sudo >/dev/null 2>&1 || { printf 'Go is missing; install golang-go with sudo.\n' >&2; exit 1; }
-    sudo apt-get update
-    sudo apt-get install -y golang-go
-  fi
 fi
 
-go_version=$(go version | awk '{print $3}')
-go_version=${go_version#go}
-go_major=${go_version%%.*}
-go_rest=${go_version#*.}
-go_minor=${go_rest%%.*}
-if [[ ! $go_major =~ ^[0-9]+$ || ! $go_minor =~ ^[0-9]+$ ]] || ((go_major < 1 || (go_major == 1 && go_minor < 18))); then
-  printf 'Go 1.18 or newer is required; found %s.\n' "$go_version" >&2
-  exit 1
+case "$bin_path" in
+    /*) ;;
+    *) bin_path=$(pwd -P)/$bin_path ;;
+esac
+bin_dir=${bin_path%/*}
+if [ "$bin_dir" = "$bin_path" ]; then
+    bin_dir=.
 fi
-
-if ((dry_run)); then
-  tmp_binary=$(mktemp "${TMPDIR:-/tmp}/revkit-dry-run.XXXXXXXX")
-  trap 'rm -f -- "$tmp_binary"' EXIT
-  (cd -- "$source_dir" && GOTOOLCHAIN=local go build -trimpath -ldflags "-X main.version=v0.1.0" -o "$tmp_binary" ./cmd/revkit)
-  "$tmp_binary" --root "$root" install --dry-run
-  exit 0
-fi
-
-for path in \
-  "$root" "$root/bin" \
-  "$root/tools" "$root/tools/gui" "$root/tools/cli" \
-  "$root/workspace" "$root/workspace/samples" "$root/workspace/reports" "$root/workspace/notes" \
-  "$root/dashboard"; do
-  if [[ -L "$path" || ( -e "$path" && ! -d "$path" ) ]]; then
-    printf 'Refusing to use a symlink or non-directory in the installation root: %s\n' "$path" >&2
+mkdir -p "$bin_dir"
+if [ -L "$bin_dir" ] || [ ! -d "$bin_dir" ]; then
+    printf 'Refusing to install into a symlink or non-directory: %s\n' "$bin_dir" >&2
     exit 1
-  fi
-done
-
-mkdir -p -- "$root/bin"
-tmp_binary=$(mktemp "$root/bin/.revkit.XXXXXXXX")
-trap 'rm -f -- "$tmp_binary"' EXIT
-(cd -- "$source_dir" && GOTOOLCHAIN=local go build -trimpath -ldflags "-X main.version=v0.1.0" -o "$tmp_binary" ./cmd/revkit)
-chmod 0755 "$tmp_binary"
-if [[ -f "$root/bin/revkit" ]] && cmp -s -- "$tmp_binary" "$root/bin/revkit"; then
-  rm -f -- "$tmp_binary"
-else
-  mv -f -- "$tmp_binary" "$root/bin/revkit"
 fi
-
-local_bin="$HOME/.local/bin"
-mkdir -p -- "$local_bin"
-link="$local_bin/revkit"
-if [[ -L "$link" ]]; then
-  existing=$(realpath -m -- "$link")
-  if [[ "$existing" != "$root/bin/revkit" ]]; then
-    printf 'Refusing to replace the existing revkit link: %s\n' "$link" >&2
+if [ -L "$bin_path" ] || { [ -e "$bin_path" ] && [ ! -f "$bin_path" ]; }; then
+    printf 'Refusing to replace a symlink or non-file: %s\n' "$bin_path" >&2
     exit 1
-  fi
-elif [[ -e "$link" ]]; then
-  printf 'Refusing to replace the existing file: %s\n' "$link" >&2
-  exit 1
-else
-  ln -s -- "$root/bin/revkit" "$link"
 fi
 
-path_has() {
-  local wanted=$1 entry
-  local -a entries
-  IFS=: read -r -a entries <<< "${PATH:-}"
-  for entry in "${entries[@]}"; do
-    [[ "$entry" == "$wanted" ]] && return 0
-  done
-  return 1
+umask 077
+tmp_binary=$(mktemp "$bin_dir/.revkit-download.XXXXXXXX")
+tmp_sums=$(mktemp "$bin_dir/.revkit-sums.XXXXXXXX")
+cleanup() {
+    rm -f "$tmp_binary" "$tmp_sums"
+}
+trap cleanup EXIT
+trap 'exit 1' HUP INT TERM
+
+release_url=https://github.com/Voldigoade/revkit/releases/latest/download
+download() {
+    url=$1
+    output=$2
+    effective=$(curl -fsSL --proto '=https' --proto-redir '=https' --tlsv1.2 --connect-timeout 15 --max-time 120 -w '%{url_effective}' "$url" -o "$output")
+    case "$effective" in
+        https://github.com/*|https://release-assets.githubusercontent.com/*|https://objects.githubusercontent.com/*|https://github-releases.githubusercontent.com/*) ;;
+        *) printf 'Download redirected to an untrusted host.\n' >&2; exit 1 ;;
+    esac
 }
 
-profile="$HOME/.profile"
-if ! path_has "$local_bin" && ! grep -Fq '# >>> RevKit PATH >>>' "$profile" 2>/dev/null; then
-  {
-    printf '\n# >>> RevKit PATH >>>\n'
-    printf 'case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) PATH="$HOME/.local/bin:$PATH" ;; esac\n'
-    printf 'export PATH\n'
-    printf '# <<< RevKit PATH <<<\n'
-  } >> "$profile"
-fi
-if ! path_has "$local_bin"; then
-  PATH="$local_bin:$PATH"
-  export PATH
-fi
+download "$release_url/SHA256SUMS" "$tmp_sums"
+download "$release_url/revkit-linux-amd64" "$tmp_binary"
 
-"$root/bin/revkit" --root "$root" install
+sum_lines=$(awk '$2 == "revkit-linux-amd64" || $2 == "*revkit-linux-amd64" { print $1 }' "$tmp_sums")
+if [ "$(printf '%s\n' "$sum_lines" | awk 'NF { count++ } END { print count+0 }')" -ne 1 ]; then
+    printf 'SHA256SUMS must contain exactly one revkit-linux-amd64 entry.\n' >&2
+    exit 1
+fi
+case "$sum_lines" in
+    *[!0123456789abcdefABCDEF]*|'') printf 'Invalid SHA-256 entry.\n' >&2; exit 1 ;;
+esac
+if [ "${#sum_lines}" -ne 64 ]; then
+    printf 'Invalid SHA-256 length.\n' >&2
+    exit 1
+fi
+printf '%s  %s\n' "$sum_lines" "$tmp_binary" | sha256sum --check --status - || {
+    printf 'RevKit release checksum verification failed.\n' >&2
+    exit 1
+}
+
+chmod 0755 "$tmp_binary"
+mv -f "$tmp_binary" "$bin_path"
+cleanup
+trap - EXIT HUP INT TERM
+if [ -n "$root" ]; then
+    exec "$bin_path" --root "$root" install
+fi
+exec "$bin_path" install
