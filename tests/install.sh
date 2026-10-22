@@ -57,6 +57,15 @@ export REVKIT_TEST_SUMS="$sums_fixture"
 PATH=$fake_bin:$PATH
 export PATH
 
+if "$repo/install.sh" --root >/dev/null 2>&1; then
+    printf 'installer accepted a missing root argument\n' >&2
+    exit 1
+fi
+if "$repo/install.sh" --bin '' >/dev/null 2>&1; then
+    printf 'installer accepted an empty binary path\n' >&2
+    exit 1
+fi
+
 root=$test_root/RevKit\ With\ Spaces
 bin_path=$home/.local/bin/revkit
 "$repo/install.sh" --root "$root" --bin "$bin_path"

@@ -11,12 +11,18 @@ bin_path=${REVKIT_BIN:-${HOME:?HOME is not set}/.local/bin/revkit}
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --root)
-            [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                usage >&2
+                exit 2
+            fi
             root=$2
             shift 2
             ;;
         --bin)
-            [ "$#" -ge 2 ] && [ -n "$2" ] || { usage >&2; exit 2; }
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                usage >&2
+                exit 2
+            fi
             bin_path=$2
             shift 2
             ;;
