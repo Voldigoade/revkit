@@ -41,9 +41,10 @@ jobs:
         run: test -z "$(gofmt -l $(git ls-files '*.go'))"
       - name: Check shell scripts
         run: |
-          sh -n install.sh tests/install.sh
-          shellcheck install.sh tests/install.sh
+          sh -n install.sh tests/install.sh scripts/create-release.sh tests/release-notes.sh
+          shellcheck install.sh tests/install.sh scripts/create-release.sh tests/release-notes.sh
           sh tests/install.sh
+          sh tests/release-notes.sh
       - name: Check tracked text
         run: python3 scripts/check-tracked-text.py
       - name: Install Go analyzers

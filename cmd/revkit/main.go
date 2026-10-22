@@ -447,15 +447,89 @@ func runAnalyze(root, input string, machine bool, stdout, stderr io.Writer) int 
 			return 1
 		}
 	} else {
-		fmt.Fprintf(stdout, "What is it? %s\n\n", value.Summary)
-		fmt.Fprintf(stdout, "What that means: %s\n\n", value.Explanation)
-		fmt.Fprintln(stdout, "Target was NOT executed.")
-		fmt.Fprintf(stdout, "HTML report: %s\nMarkdown:    %s\nJSON:        %s\n", paths.HTML, paths.Markdown, paths.JSON)
-		if len(value.NextSteps) > 0 {
-			fmt.Fprintf(stdout, "Next step: %s\n", value.NextSteps[0].Action)
-		}
+		fmt.Fprint(stdout, terminalAnalysisSummary(value, paths))
 	}
 	return 0
+}
+
+func terminalAnalysisSummary(value report.Report, paths report.Paths) string {
+	var output strings.Builder
+	fmt.Fprintf(&output, "RevKit analyzed: %s\n\nType:\n%s\nWhat that means: %s\n\nImportant clues:\n", value.Metadata.Name, analysisType(value), value.Explanation)
+	clueCount := 0
+	for _, finding := range value.Findings {
+		if finding.Title != "Program messages and usage" {
+			continue
+		}
+		for _, clue := range finding.Evidence {
+			if clueCount == 5 {
+				break
+			}
+			fmt.Fprintf(&output, "- %q\n", clue)
+			clueCount++
+		}
+		break
+	}
+	if clueCount == 0 {
+		for _, finding := range value.Findings {
+			switch finding.Title {
+			case "Imported functions":
+				for _, imported := range finding.Evidence {
+					if clueCount == 3 {
+						break
+					}
+					fmt.Fprintf(&output, "- Imported function: %s\n", imported)
+					clueCount++
+				}
+			case "Symbols present", "Symbol table absent", "Debug information", "Dynamic linking", "No dynamic interpreter":
+				fmt.Fprintf(&output, "- %s: %s\n", finding.Title, finding.Meaning)
+				clueCount++
+			}
+			if clueCount >= 3 {
+				break
+			}
+		}
+	}
+	if clueCount == 0 {
+		fmt.Fprintln(&output, "- No strong clues stood out; the full evidence is in the report.")
+	}
+	for _, warning := range value.Warnings {
+		fmt.Fprintf(&output, "Warning: %s\n", warning)
+	}
+	fmt.Fprintln(&output)
+	fmt.Fprintln(&output, "Target was NOT executed.")
+	if len(value.NextSteps) > 0 {
+		step := value.NextSteps[0]
+		if step.Tool != "" {
+			fmt.Fprintf(&output, "Recommended tool: %s\n", step.Tool)
+		}
+		fmt.Fprintf(&output, "Do this next: %s\n", step.Action)
+		if len(step.Learn) > 0 {
+			fmt.Fprintf(&output, "Learn first: %s\n", strings.Join(step.Learn[:min(3, len(step.Learn))], "; "))
+		}
+		if len(step.Searches) > 0 {
+			fmt.Fprintln(&output, "Search:")
+			for _, query := range step.Searches[:min(2, len(step.Searches))] {
+				fmt.Fprintf(&output, "- %s\n", query)
+			}
+		}
+	}
+	fmt.Fprintf(&output, "Report: %s\n", paths.HTML)
+	return output.String()
+}
+
+func analysisType(value report.Report) string {
+	id := value.Identification
+	if id.Format == "PE" {
+		if id.Class == "malformed" {
+			return strings.TrimSuffix(value.Summary, ".")
+		}
+		description := id.Class + " Windows executable"
+		if id.Subsystem == "Windows console" || id.Subsystem == "Windows GUI" {
+			description = id.Class + " " + id.Subsystem + " executable"
+		}
+		return fmt.Sprintf("%s, %s", description, id.Architecture)
+	}
+	return strings.TrimSuffix(value.Summary, ".")
 }
 
 func runDashboard(root string, catalogue catalog.Catalog, open bool, stdout, stderr io.Writer) int {

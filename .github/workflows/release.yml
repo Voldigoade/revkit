@@ -38,7 +38,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/revkit-linux-amd64 dist/SHA256SUMS \
-            --title "$GITHUB_REF_NAME" \
-            --notes 'RevKit v0.2.0 adds a checksum-verified Linux x86-64 installer, offline static analysis for ELF, PE, ZIP, text, and unknown files, beginner-focused reports, and an interactive menu. Commands: install, update, doctor, list, analyze, dashboard, version, and uninstall. Major tools include Ghidra, Cutter, Pwndbg, FLOSS, capa, and Detect It Easy, plus curated APT tools. Tested on Ubuntu 24.04 and Debian stable. Known limitations: Linux x86-64 only, optional package availability varies by APT repository, and analysis never executes targets.'
+          sh scripts/create-release.sh "$GITHUB_REF_NAME" dist/revkit-linux-amd64 dist/SHA256SUMS

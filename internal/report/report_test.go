@@ -50,6 +50,36 @@ func TestRenderersUseSharedReportDataAndEscapeHTML(t *testing.T) {
 	}
 }
 
+func TestRenderersPreserveEvidenceBytes(t *testing.T) {
+	value := sampleReport()
+	value.Evidence = []Evidence{{Source: "strings", Output: "  Wrong password  \nflag{example}\n"}}
+	jsonData, err := RenderJSON(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded Report
+	if err := json.Unmarshal(jsonData, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if got := decoded.Evidence[0].Output; got != value.Evidence[0].Output {
+		t.Fatalf("JSON evidence changed: %q", got)
+	}
+	markdown, err := RenderMarkdown(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(markdown, "```text\n"+value.Evidence[0].Output+"```") {
+		t.Fatalf("Markdown evidence changed: %q", markdown)
+	}
+	page, err := RenderHTML(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(page, "<pre>"+value.Evidence[0].Output+"</pre>") {
+		t.Fatalf("HTML evidence changed: %q", page)
+	}
+}
+
 func TestMarkdownFlattensUntrustedFilenames(t *testing.T) {
 	value := sampleReport()
 	value.Metadata.Name = "sample]\n## injected"
@@ -105,5 +135,22 @@ func TestLoadIndexSortsReportsAndSkipsUnrelatedFiles(t *testing.T) {
 	}
 	if len(entries) != 2 || entries[0].ID != "newer" || entries[0].HTML != "newer.html" || entries[1].ID != "older" {
 		t.Fatalf("report index = %#v", entries)
+	}
+}
+
+func TestLoadIndexIncludesReportsWithLargeEvidence(t *testing.T) {
+	dir := t.TempDir()
+	value := sampleReport()
+	value.Metadata.ID = "large-evidence"
+	value.Evidence = []Evidence{{Source: "strings", Output: strings.Repeat("x", 5<<20)}}
+	if _, err := Save(dir, value); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := LoadIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].ID != "large-evidence" {
+		t.Fatalf("large evidence report is missing from index: %#v", entries)
 	}
 }

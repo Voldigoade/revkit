@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Voldigoade/revkit/internal/catalog"
+	"github.com/Voldigoade/revkit/internal/report"
 	"github.com/Voldigoade/revkit/internal/state"
 )
 
@@ -24,6 +25,40 @@ func TestRunHelpListsSupportedCommands(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "triage") || strings.Contains(stdout.String(), string(rune(0x2014))) {
 		t.Fatal("help includes a removed command or forbidden em dash")
+	}
+}
+
+func TestTerminalAnalysisSummaryGivesOneEvidenceBasedNextStep(t *testing.T) {
+	value := report.Report{
+		Metadata:       report.Metadata{Name: "ch15.exe"},
+		Identification: report.Identification{Format: "PE", Class: "PE32", Architecture: "x86", Subsystem: "Windows console"},
+		Findings:       []report.Finding{{Title: "Program messages and usage", Evidence: []string{"Wrong password", "Gratz man :)", "Usage: %s pass"}}},
+		NextSteps: []report.NextStep{{
+			Action:   `Search for "Wrong password", then inspect its XREF (code that uses this string).`,
+			Tool:     "Ghidra",
+			Learn:    []string{"Ghidra strings", "XREF / references", "C command-line arguments (argc/argv)"},
+			Searches: []string{"Ghidra find references to string beginner"},
+		}},
+	}
+	paths := report.Paths{HTML: filepath.Join("workspace", "reports", "ch15.html")}
+	got := terminalAnalysisSummary(value, paths)
+	for _, expected := range []string{
+		"RevKit analyzed: ch15.exe",
+		"PE32 Windows console executable, x86",
+		"Wrong password",
+		"Gratz man :)",
+		"Recommended tool: Ghidra",
+		"XREF (code that uses this string)",
+		"C command-line arguments (argc/argv)",
+		"Ghidra find references to string beginner",
+		filepath.Join("workspace", "reports", "ch15.html"),
+	} {
+		if !strings.Contains(got, expected) {
+			t.Errorf("terminal summary is missing %q:\n%s", expected, got)
+		}
+	}
+	if strings.Count(got, "Recommended tool:") != 1 {
+		t.Fatalf("terminal summary should recommend one primary tool:\n%s", got)
 	}
 }
 

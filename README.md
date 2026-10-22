@@ -26,9 +26,9 @@ revkit analyze ./sample --json
 revkit dashboard
 ```
 
-With an interactive terminal, `revkit` opens a small keyboard-driven menu. Choose **Analyze a file**, select a sample, then open **Reports** or the dashboard. In scripts, use `revkit analyze FILE --json`; the CLI does not require the TUI.
+With an interactive terminal, `revkit` opens a small keyboard-driven menu. Choose **Analyze a file**, select a sample, then open **Reports** or the dashboard. `revkit analyze FILE` prints a few file-specific clues, recommends one primary tool, and gives one concrete next step. In scripts, use `revkit analyze FILE --json`; the CLI does not require the TUI.
 
-Analysis is offline and static. It writes Markdown, JSON, and HTML under `workspace/reports/`. The report explains the detected format and architecture, highlights evidence, and suggests focused next steps and search terms. The dashboard regenerates after each analysis and links to reports with ordinary local HTML links.
+Analysis is offline and static. It writes Markdown, JSON, and HTML under `workspace/reports/`. Beginner summaries are interpretations layered on top of the evidence; target strings and analyzer output are not semantically redacted. The HTML report keeps raw evidence collapsed until opened. The dashboard regenerates after each analysis and links to reports with ordinary local HTML links.
 
 ## Commands
 
@@ -57,7 +57,7 @@ RevKit targets Linux x86-64 (`amd64`) with a Debian-family APT environment. CI t
 
 ## Safety
 
-RevKit is not a Kali or REMnux replacement, a malware sandbox, or a challenge solver. `analyze` never starts the target, invokes Wine, or extracts archives. It uses bounded static parsers and tools with timeouts and output limits. Automatic capa and FLOSS analysis is skipped when their version cannot be confirmed or predates the upstream workspace-loading fix. This does not make later debugging, emulation, or extraction safe; use an isolated environment for dynamic work. A release checksum checks downloaded bytes against the published digest, but it is not a code audit.
+RevKit is not a Kali or REMnux replacement, a malware sandbox, or a challenge solver. `analyze` never starts the target, invokes Wine, or extracts archives. Printable strings are kept in full for inputs within the documented file-size limit. Analyzer commands have timeouts and a 128 KiB output limit per tool; when reached, the report keeps the available prefix and clearly marks that evidence as incomplete. Automatic capa and FLOSS analysis is skipped when their version cannot be confirmed or predates the upstream workspace-loading fix. This does not make later debugging, emulation, or extraction safe; use an isolated environment for dynamic work. A release checksum checks downloaded bytes against the published digest, but it is not a code audit.
 
 ## Workstation layout
 

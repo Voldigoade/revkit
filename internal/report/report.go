@@ -159,7 +159,11 @@ func RenderMarkdown(value Report) (string, error) {
 		fmt.Fprintln(&out, "## Evidence")
 		for _, evidence := range value.Evidence {
 			fence := fence(evidence.Output)
-			fmt.Fprintf(&out, "\n### %s\n\n%stext\n%s\n%s\n", md(evidence.Source), fence, strings.TrimSpace(evidence.Output), fence)
+			fmt.Fprintf(&out, "\n### %s\n\n%stext\n%s", md(evidence.Source), fence, evidence.Output)
+			if !strings.HasSuffix(evidence.Output, "\n") {
+				out.WriteByte('\n')
+			}
+			fmt.Fprintf(&out, "%s\n", fence)
 		}
 	}
 	return strings.TrimSpace(out.String()) + "\n", nil
@@ -243,15 +247,14 @@ func LoadIndex(dir string) ([]IndexEntry, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !info.Mode().IsRegular() || info.Size() > maxReportSize {
+		if !info.Mode().IsRegular() {
 			continue
 		}
 		file, err := os.Open(path)
 		if err != nil {
 			return nil, err
 		}
-		var value Report
-		decodeErr := json.NewDecoder(io.LimitReader(file, maxReportSize)).Decode(&value)
+		metadata, identification, summary, decodeErr := decodeIndexFields(file)
 		closeErr := file.Close()
 		if decodeErr != nil {
 			continue
@@ -259,14 +262,14 @@ func LoadIndex(dir string) ([]IndexEntry, error) {
 		if closeErr != nil {
 			return nil, closeErr
 		}
-		if !idPattern.MatchString(value.Metadata.ID) || value.Metadata.ID != strings.TrimSuffix(filepath.Base(path), ".json") || value.Metadata.Name == "" {
+		if !idPattern.MatchString(metadata.ID) || metadata.ID != strings.TrimSuffix(filepath.Base(path), ".json") || metadata.Name == "" {
 			continue
 		}
-		created := value.Metadata.CreatedAt
+		created := metadata.CreatedAt
 		if created.IsZero() {
-			created = value.Metadata.Modified
+			created = metadata.Modified
 		}
-		entries = append(entries, IndexEntry{ID: value.Metadata.ID, Filename: value.Metadata.Name, HTML: value.Metadata.ID + ".html", Format: value.Identification.Format, Architecture: value.Identification.Architecture, Size: value.Metadata.Size, CreatedAt: created, Summary: value.Summary})
+		entries = append(entries, IndexEntry{ID: metadata.ID, Filename: metadata.Name, HTML: metadata.ID + ".html", Format: identification.Format, Architecture: identification.Architecture, Size: metadata.Size, CreatedAt: created, Summary: summary})
 	}
 	sort.Slice(entries, func(i, j int) bool {
 		if entries[i].CreatedAt.Equal(entries[j].CreatedAt) {
@@ -275,6 +278,52 @@ func LoadIndex(dir string) ([]IndexEntry, error) {
 		return entries[i].CreatedAt.After(entries[j].CreatedAt)
 	})
 	return entries, nil
+}
+
+func decodeIndexFields(file io.Reader) (Metadata, Identification, string, error) {
+	decoder := json.NewDecoder(io.LimitReader(file, maxReportSize))
+	start, err := decoder.Token()
+	if err != nil {
+		return Metadata{}, Identification{}, "", err
+	}
+	if start != json.Delim('{') {
+		return Metadata{}, Identification{}, "", errors.New("report JSON must be an object")
+	}
+	var metadata Metadata
+	var identification Identification
+	var summary string
+	var haveMetadata, haveIdentification, haveSummary bool
+	for decoder.More() {
+		keyToken, err := decoder.Token()
+		if err != nil {
+			return Metadata{}, Identification{}, "", err
+		}
+		key, ok := keyToken.(string)
+		if !ok {
+			return Metadata{}, Identification{}, "", errors.New("report JSON contains a non-string key")
+		}
+		switch key {
+		case "metadata":
+			err = decoder.Decode(&metadata)
+			haveMetadata = err == nil
+		case "identification":
+			err = decoder.Decode(&identification)
+			haveIdentification = err == nil
+		case "summary":
+			err = decoder.Decode(&summary)
+			haveSummary = err == nil
+		default:
+			var discarded json.RawMessage
+			err = decoder.Decode(&discarded)
+		}
+		if err != nil {
+			return Metadata{}, Identification{}, "", err
+		}
+		if haveMetadata && haveIdentification && haveSummary {
+			return metadata, identification, summary, nil
+		}
+	}
+	return Metadata{}, Identification{}, "", errors.New("report JSON is missing index fields")
 }
 
 func validate(value Report) error {
@@ -407,7 +456,7 @@ var htmlTemplate = template.Must(template.New("report").Parse(`<!doctype html>
     <article class="card"><p>{{.Action}}</p>{{if .Tool}}<p><strong>Tool</strong>: {{.Tool}}</p>{{end}}{{if .Learn}}<p><strong>Learn first</strong></p><ul>{{range .Learn}}<li>{{.}}</li>{{end}}</ul>{{end}}{{if .Searches}}<p><strong>Useful searches</strong></p><ul>{{range .Searches}}<li><code>{{.}}</code></li>{{end}}</ul>{{end}}</article>
   {{end}}{{end}}
   {{if .Warnings}}<h2>Analyzer warnings</h2><ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul>{{end}}
-  {{if .Evidence}}<h2>Evidence</h2>{{range .Evidence}}<section class="card"><h3>{{.Source}}</h3><pre>{{.Output}}</pre></section>{{end}}{{end}}
+  {{if .Evidence}}<h2>Evidence</h2>{{range .Evidence}}<details class="card"><summary>Raw evidence: {{.Source}}</summary><pre>{{.Output}}</pre></details>{{end}}{{end}}
 </body>
 </html>
 `))

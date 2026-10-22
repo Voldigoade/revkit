@@ -32,9 +32,7 @@ import (
 const (
 	defaultMaxFileSize = 128 << 20
 	maxEvidenceOutput  = 128 << 10
-	maxStringCount     = 60
-	maxStringLength    = 256
-	maxArchiveEntries  = 40
+	maxSummaryScan     = 1 << 20
 )
 
 type Runner interface {
@@ -188,7 +186,7 @@ func explain(id report.Identification) string {
 		} else if id.Class == "PE32+" {
 			bits = "64-bit"
 		}
-		return fmt.Sprintf("This is a %s Windows program targeting %s and using the %s subsystem.", bits, architectureMeaning(id.Architecture), id.Subsystem)
+		return fmt.Sprintf("PE is the standard Windows executable format. This is a %s program for %s using the %s subsystem.", bits, architectureMeaning(id.Architecture), id.Subsystem)
 	case "ZIP archive":
 		return "This file is a container for named entries. RevKit only read the archive directory; it did not extract or run any contents."
 	case "text/script":
@@ -230,7 +228,7 @@ func (a Analyzer) inspect(ctx context.Context, file *os.File, size int64, result
 	case isZIPHeader(header):
 		a.inspectZIP(file, size, &result)
 	case isText(header):
-		a.inspectText(header, &result)
+		a.inspectText(file, size, header, &result)
 	default:
 		a.inspectGeneric(file, size, header, &result)
 	}
@@ -247,7 +245,8 @@ func (a Analyzer) inspectELF(file *os.File, size int64, result *report.Report) {
 		result.Identification.Class = "malformed"
 		result.Summary = "ELF signature found, but its headers could not be read."
 		result.Warnings = append(result.Warnings, "ELF header parsing failed: "+err.Error())
-		result.NextSteps = elfNextSteps()
+		result.NextSteps = headerNextSteps()
+		addStringEvidence(collectStrings(file, size), result)
 		return
 	}
 	result.Identification.Class = parsed.class
@@ -282,13 +281,12 @@ func (a Analyzer) inspectELF(file *os.File, size int64, result *report.Report) {
 		result.Findings = append(result.Findings, report.Finding{Title: "RELRO segment", Meaning: "A GNU RELRO segment is present.", Why: "RELRO protects selected relocation data after the dynamic loader has finished using it.", Evidence: []string{"PT_GNU_RELRO: present"}})
 	}
 	result.Evidence = append(result.Evidence, report.Evidence{Source: "ELF header", Output: fmt.Sprintf("Class: %s\nArchitecture: %s\nEndianness: %s\nType: %s\nSections: %s", parsed.class, parsed.architecture, parsed.endianness, parsed.fileType, strings.Join(parsed.sections, ", "))})
-	stringsFound := collectStrings(file, size)
-	addStringFindings(stringsFound, result)
 	result.Summary = fmt.Sprintf("%s %s ELF %s.", parsed.class, parsed.architecture, strings.ToLower(parsed.fileType))
 	result.NextSteps = elfNextSteps()
 	if parsed.pie {
 		result.Summary = fmt.Sprintf("Position-independent %s %s ELF executable.", parsed.class, parsed.architecture)
 	}
+	addStringEvidence(collectStrings(file, size), result)
 }
 
 type elfInfo struct {
@@ -345,9 +343,6 @@ func parseELF(reader io.ReaderAt) (info elfInfo, err error) {
 	}
 	info.pie = info.dynamic && file.Type == elf.ET_DYN
 	for _, section := range file.Sections {
-		if len(info.sections) == 20 {
-			break
-		}
 		info.sections = append(info.sections, section.Name)
 	}
 	return info, nil
@@ -388,7 +383,8 @@ func (a Analyzer) inspectPE(file *os.File, size int64, result *report.Report) {
 		result.Identification.Class = "malformed"
 		result.Summary = "Windows executable signature found, but its PE headers could not be read."
 		result.Warnings = append(result.Warnings, "PE header parsing failed: "+err.Error())
-		result.NextSteps = peNextSteps()
+		result.NextSteps = headerNextSteps()
+		addStringEvidence(collectStrings(file, size), result)
 		return
 	}
 	result.Identification.Class = parsed.class
@@ -406,9 +402,9 @@ func (a Analyzer) inspectPE(file *os.File, size int64, result *report.Report) {
 		result.Findings = append(result.Findings, report.Finding{Title: "Imported functions", Meaning: "The import table references external Windows functions.", Why: "Imports can reveal broad dependencies and suggest code paths to inspect.", Evidence: parsed.imports})
 	}
 	result.Evidence = append(result.Evidence, report.Evidence{Source: "PE header", Output: fmt.Sprintf("Class: %s\nArchitecture: %s\nSubsystem: %s\nSections: %s\nDebug data: %s", parsed.class, parsed.architecture, parsed.subsystem, strings.Join(parsed.sections, ", "), yesNo(parsed.debugInfo))})
-	addStringFindings(collectStrings(file, size), result)
 	result.Summary = fmt.Sprintf("%s Windows PE %s executable.", parsed.class, strings.ToLower(parsed.subsystem))
 	result.NextSteps = peNextSteps()
+	addStringEvidence(collectStrings(file, size), result)
 }
 
 type peInfo struct {
@@ -448,19 +444,11 @@ func parsePE(reader io.ReaderAt) (info peInfo, err error) {
 		return info, errors.New("unsupported PE optional header")
 	}
 	for _, section := range file.Sections {
-		if len(info.sections) == 20 {
-			break
-		}
 		info.sections = append(info.sections, section.Name)
 	}
 	imports, importErr := file.ImportedSymbols()
 	if importErr == nil {
-		for _, item := range imports {
-			if len(info.imports) == 20 {
-				break
-			}
-			info.imports = append(info.imports, item)
-		}
+		info.imports = append(info.imports, imports...)
 	}
 	return info, nil
 }
@@ -504,11 +492,8 @@ func (a Analyzer) inspectZIP(file *os.File, size int64, result *report.Report) {
 		result.Warnings = append(result.Warnings, "ZIP directory parsing failed: "+err.Error())
 	} else {
 		var entries []string
-		for index, entry := range archive.File {
-			if index == maxArchiveEntries {
-				break
-			}
-			name := strings.TrimSpace(entry.Name)
+		for _, entry := range archive.File {
+			name := entry.Name
 			cleanName := pathpkg.Clean(strings.ReplaceAll(name, "\\", "/"))
 			if pathpkg.IsAbs(cleanName) || cleanName == ".." || strings.HasPrefix(cleanName, "../") {
 				result.Warnings = append(result.Warnings, "Archive contains a path that would escape an extraction directory: "+name)
@@ -519,18 +504,23 @@ func (a Analyzer) inspectZIP(file *os.File, size int64, result *report.Report) {
 		result.Summary = fmt.Sprintf("ZIP archive with %d listed entries; RevKit did not extract its contents.", len(archive.File))
 		result.Findings = append(result.Findings, report.Finding{Title: "Archive contents", Meaning: "The file contains a ZIP directory with named entries.", Why: "Entry names and sizes can help decide which files are relevant before opening them.", Evidence: entries})
 	}
-	result.NextSteps = []report.NextStep{{Action: "Inspect the listed entries and analyze a relevant file separately. RevKit does not extract archives during analysis.", Tool: "file and xxd", Learn: []string{"ZIP archive structure", "file signatures"}, Searches: []string{"ZIP local file header format", "Linux file command identify archive"}}}
+	result.NextSteps = []report.NextStep{{Action: "Use file to confirm the archive type, then analyze a relevant listed file separately. RevKit does not extract archives.", Tool: "file", Learn: []string{"ZIP archive structure", "file signatures"}, Searches: []string{"ZIP local file header format", "Linux file command identify archive"}}}
 }
 
-func (a Analyzer) inspectText(header []byte, result *report.Report) {
+func (a Analyzer) inspectText(file *os.File, size int64, header []byte, result *report.Report) {
 	result.Identification.Format = "text/script"
 	result.Identification.Architecture = "n/a"
 	result.Summary = "Readable text or script, not a recognized compiled executable."
+	contents, err := io.ReadAll(io.NewSectionReader(file, 0, size))
+	if err != nil {
+		result.Warnings = append(result.Warnings, "Text content could not be read completely: "+err.Error())
+	}
+	result.Evidence = append(result.Evidence, report.Evidence{Source: "Text content", Output: string(contents)})
 	if strings.HasPrefix(string(header), "#!") {
 		line := strings.SplitN(string(header), "\n", 2)[0]
 		result.Findings = append(result.Findings, report.Finding{Title: "Interpreter declaration", Meaning: "The first line declares an interpreter.", Why: "This identifies how the script would be started; RevKit records the line but never runs the script.", Evidence: []string{line}})
 	}
-	result.NextSteps = []report.NextStep{{Action: "Read the source and trace its inputs, branches, and external commands.", Learn: []string{"shell or scripting language basics", "input validation"}, Searches: []string{"shell script beginner control flow", "Linux script interpreter shebang"}}}
+	result.NextSteps = []report.NextStep{{Action: "Open the source in less and trace its inputs, branches, and external commands.", Tool: "less", Learn: []string{"shell or scripting language basics", "input validation"}, Searches: []string{"shell script beginner control flow", "Linux script interpreter shebang"}}}
 }
 
 func (a Analyzer) inspectGeneric(file *os.File, size int64, header []byte, result *report.Report) {
@@ -541,10 +531,10 @@ func (a Analyzer) inspectGeneric(file *os.File, size int64, header []byte, resul
 		preview = preview[:32]
 	}
 	result.Evidence = append(result.Evidence, report.Evidence{Source: "Header preview", Output: hex.EncodeToString(preview)})
-	addStringFindings(collectStrings(file, size), result)
 	result.Summary = "No recognized executable or archive format was found."
 	result.Findings = append(result.Findings, report.Finding{Title: "Unknown format", Meaning: "The header does not match the supported ELF, PE, ZIP, or text formats.", Why: "This may be a data file, an uncommon format, or a damaged header; preserve the original and verify its source before using specialized tools.", Evidence: []string{"First bytes: " + hex.EncodeToString(preview)}})
 	result.NextSteps = []report.NextStep{{Action: "Compare the header with known file signatures, then inspect a copy with a hex viewer.", Tool: "xxd", Learn: []string{"magic bytes", "hexadecimal byte offsets"}, Searches: []string{"file format magic bytes Linux", "xxd hex viewer beginner"}}}
+	addStringEvidence(collectStrings(file, size), result)
 }
 
 func (a Analyzer) addFormatTools(ctx context.Context, path string, size int64, format string, result *report.Report) {
@@ -599,16 +589,21 @@ func (a Analyzer) addFormatTools(ctx context.Context, path string, size int64, f
 			}
 		}
 		data, runErr := a.Runner.Run(ctx, pathToTool, item.args...)
+		outputLimited := len(data) > maxEvidenceOutput
 		if len(data) > maxEvidenceOutput {
 			data = data[:maxEvidenceOutput]
 		}
-		if item.name == "floss" && runErr == nil {
-			result.Evidence = append(result.Evidence, report.Evidence{Source: item.name, Output: "FLOSS completed. Extracted strings are omitted here because they may contain sensitive values; run FLOSS directly to review them."})
-		} else if item.name != "floss" && len(data) > 0 {
-			result.Evidence = append(result.Evidence, report.Evidence{Source: item.name, Output: sanitizeToolOutput(strings.ToValidUTF8(string(data), "�"))})
+		if len(data) > 0 {
+			result.Evidence = append(result.Evidence, report.Evidence{Source: item.name, Output: strings.ToValidUTF8(string(data), "�")})
 		}
 		if runErr != nil {
-			result.Warnings = append(result.Warnings, fmt.Sprintf("%s did not complete: %s", item.name, runErr))
+			if outputLimited || strings.Contains(runErr.Error(), "output limit reached") {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("%s output exceeded the %d-byte safety limit; the report preserves the first %d bytes only.", item.name, maxEvidenceOutput, len(data)))
+			} else {
+				result.Warnings = append(result.Warnings, fmt.Sprintf("%s did not complete: %s", item.name, runErr))
+			}
+		} else if outputLimited {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("%s output exceeded the %d-byte safety limit; the report preserves the first %d bytes only.", item.name, maxEvidenceOutput, len(data)))
 		}
 	}
 }
@@ -740,22 +735,17 @@ func collectStrings(file *os.File, size int64) []string {
 	var output []string
 	var current strings.Builder
 	flush := func() {
-		value := strings.TrimSpace(current.String())
+		value := current.String()
 		current.Reset()
-		if len(value) < 4 || len(output) >= maxStringCount || sensitiveString(value) {
+		if len(value) < 4 {
 			return
-		}
-		if len(value) > maxStringLength {
-			value = value[:maxStringLength] + "..."
 		}
 		output = append(output, value)
 	}
 	for {
 		value, err := reader.ReadByte()
 		if value >= 0x20 && value <= 0x7e {
-			if current.Len() < maxStringLength+4 {
-				current.WriteByte(value)
-			}
+			current.WriteByte(value)
 		} else {
 			flush()
 		}
@@ -765,50 +755,125 @@ func collectStrings(file *os.File, size int64) []string {
 			}
 			break
 		}
-		if len(output) >= maxStringCount {
-			break
-		}
 	}
 	flush()
 	return output
 }
 
-func sensitiveString(value string) bool {
-	lower := strings.ToLower(value)
-	for _, term := range []string{"password", "passwd", "secret", "token", "flag{"} {
-		if strings.Contains(lower, term) {
-			return true
-		}
+func addStringEvidence(values []string, result *report.Report) {
+	if len(values) == 0 {
+		return
 	}
-	return false
-}
-
-func addStringFindings(values []string, result *report.Report) {
-	var interesting []string
-	for _, value := range values {
-		lower := strings.ToLower(value)
-		for _, term := range []string{"success", "failure", "failed", "error", "usage", "invalid", "incorrect", "argument", "option"} {
-			if strings.Contains(lower, term) {
-				interesting = append(interesting, value)
-				break
-			}
-		}
-		if len(interesting) == 12 {
-			break
-		}
-	}
+	result.Evidence = append(result.Evidence, report.Evidence{Source: "Printable strings", Output: strings.Join(values, "\n")})
+	interesting := importantStrings(values)
 	if len(interesting) == 0 {
 		return
 	}
-	result.Findings = append(result.Findings, report.Finding{Title: "Readable program strings", Meaning: "Some printable text may describe errors, usage, or successful paths.", Why: "These phrases can help you locate related code in a disassembler; they are clues, not proof of behavior.", Evidence: interesting})
+	meaning := "These look like program messages or input hints. Search for one in a disassembler to see which code uses it."
+	for _, value := range interesting {
+		if strings.Contains(strings.ToLower(value), "usage") {
+			meaning = "A usage line often shows expected input. Look for argc (argument count) and argv (argument values), which tell a program what was entered."
+			break
+		}
+	}
+	result.Findings = append(result.Findings, report.Finding{Title: "Program messages and usage", Meaning: meaning, Why: "Strings are navigation clues, not proof of behavior. References show where code uses a string.", Evidence: interesting})
+	if len(result.NextSteps) == 0 {
+		return
+	}
+	step := result.NextSteps[0]
+	if step.Tool != "Ghidra" {
+		return
+	}
+	clue := primaryStringClue(interesting)
+	step.Action = fmt.Sprintf("Search for %q in Ghidra, then inspect its XREF (code that uses this text).", clue)
+	hasUsage := false
+	for _, value := range interesting {
+		hasUsage = hasUsage || strings.Contains(strings.ToLower(value), "usage")
+	}
+	if hasUsage {
+		step.Action += " The usage text may describe an input argument; trace argc (argument count) and argv (argument values)."
+	} else {
+		step.Action += " Check the nearby branch to see what happens after this message."
+	}
+	result.NextSteps[0] = step
+}
+
+func importantStrings(values []string) []string {
+	strong := summaryMatches(values, strongSummaryCluePattern)
+	if len(strong) > 0 {
+		if len(strong) > 5 {
+			return strong[:5]
+		}
+		return strong
+	}
+	general := summaryMatches(values, generalSummaryCluePattern)
+	if len(general) > 5 {
+		return general[:5]
+	}
+	return general
+}
+
+func summaryMatches(values []string, pattern *regexp.Regexp) []string {
+	var matches []string
+	for _, value := range values {
+		if len(value) > maxSummaryScan {
+			continue
+		}
+		for _, clue := range pattern.FindAllString(separateCaseBoundaries(value), -1) {
+			clue = strings.TrimSpace(clue)
+			duplicate := false
+			for _, existing := range matches {
+				if existing == clue {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
+				matches = append(matches, clue)
+			}
+		}
+	}
+	return matches
+}
+
+func separateCaseBoundaries(value string) string {
+	var output strings.Builder
+	output.Grow(len(value))
+	data := []byte(value)
+	for index, current := range data {
+		lowerToUpper := index > 0 && data[index-1] >= 'a' && data[index-1] <= 'z' && current >= 'A' && current <= 'Z'
+		acronymEnd := index > 0 && index+1 < len(data) && data[index-1] >= 'A' && data[index-1] <= 'Z' && current >= 'A' && current <= 'Z' && data[index+1] >= 'a' && data[index+1] <= 'z'
+		if lowerToUpper || acronymEnd {
+			output.WriteByte(' ')
+		}
+		output.WriteByte(current)
+	}
+	return output.String()
+}
+
+var strongSummaryCluePattern = regexp.MustCompile(`(?i)\b(?:wrong|incorrect|invalid)\s+(?:password|passcode|passphrase|pass)\b|\bgratz(?:\s+man\s*:\))?|\bcongrat(?:ulations)?\b|\busage:\s*%s\s+pass\b|\busage\s*:`)
+var generalSummaryCluePattern = regexp.MustCompile(`(?i)\b(?:success(?:ful)?|failure|failed)\b`)
+
+func primaryStringClue(values []string) string {
+	for _, value := range values {
+		lower := strings.ToLower(value)
+		if strings.Contains(lower, "wrong") || strings.Contains(lower, "incorrect") || strings.Contains(lower, "invalid") || strings.Contains(lower, "failure") || strings.Contains(lower, "failed") || strings.Contains(lower, "error") {
+			return value
+		}
+	}
+	return values[0]
 }
 
 func elfNextSteps() []report.NextStep {
-	return []report.NextStep{{Action: "Open the ELF in Ghidra and inspect the entry point, imports, and references to useful strings.", Tool: "Ghidra", Learn: []string{"ELF headers, sections, and segments", "x86 calling conventions", "Ghidra strings and cross-references"}, Searches: []string{"ELF inspect sections readelf", "Ghidra string xref beginner", "Ghidra decompiler beginner"}}}
+	return []report.NextStep{{Action: "Open the ELF in Ghidra and inspect its entry point and references to useful strings.", Tool: "Ghidra", Learn: []string{"ELF headers (file metadata), sections (named regions), and segments (loader regions)", "x86 calling conventions", "Ghidra strings and XREFs (references to code that uses text)"}, Searches: []string{"ELF inspect sections readelf", "Ghidra string xref beginner", "Ghidra decompiler beginner"}}}
 }
 
 func peNextSteps() []report.NextStep {
-	return []report.NextStep{{Action: "Open the PE in Ghidra and find references to useful strings or imported functions.", Tool: "Ghidra", Learn: []string{"PE32 and PE32+ basics", "Windows imports", "Ghidra strings and cross-references"}, Searches: []string{"PE32 executable beginner", "Ghidra string xref beginner", "Ghidra decompiler beginner"}}}
+	return []report.NextStep{{Action: "Open the PE in Ghidra and find references to useful strings or imported functions.", Tool: "Ghidra", Learn: []string{"PE32 and PE32+ (32-bit and 64-bit Windows executable formats)", "Windows imports (functions supplied by libraries)", "C command-line arguments (argc/argv: argument count and values)", "Ghidra strings and XREFs (references to code that uses text)"}, Searches: []string{"PE32 executable beginner", "Ghidra string xref beginner", "Ghidra decompiler beginner"}}}
+}
+
+func headerNextSteps() []report.NextStep {
+	return []report.NextStep{{Action: "Use xxd to inspect the first bytes and compare the header with known file signatures.", Tool: "xxd", Learn: []string{"magic bytes", "hexadecimal byte offsets"}, Searches: []string{"file format magic bytes Linux", "xxd hex viewer beginner"}}}
 }
 
 func isZIPHeader(data []byte) bool {
@@ -825,16 +890,6 @@ func isText(data []byte) bool {
 		}
 	}
 	return true
-}
-
-func sanitizeToolOutput(output string) string {
-	lines := strings.Split(output, "\n")
-	for index, line := range lines {
-		if sensitiveString(line) {
-			lines[index] = "[redacted sensitive-looking output]"
-		}
-	}
-	return strings.Join(lines, "\n")
 }
 
 func yesNo(value bool) string {

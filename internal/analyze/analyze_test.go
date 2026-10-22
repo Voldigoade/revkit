@@ -2,9 +2,11 @@ package analyze
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"debug/elf"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -20,6 +22,7 @@ type recordingRunner struct {
 	commands []string
 	args     [][]string
 	versions map[string]string
+	outputs  map[string][]byte
 }
 
 func (r *recordingRunner) Run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -33,6 +36,9 @@ func (r *recordingRunner) Run(_ context.Context, name string, args ...string) ([
 		if version != "" {
 			return []byte(version), nil
 		}
+	}
+	if output := r.outputs[filepath.Base(name)]; output != nil {
+		return append([]byte(nil), output...), nil
 	}
 	return []byte(name + " evidence"), nil
 }
@@ -134,7 +140,7 @@ func TestAnalyzeELFAndPEUseFormatSpecificTools(t *testing.T) {
 			if got.Metadata.SHA256 == "" || got.Summary == "" || got.Explanation == "" || len(got.NextSteps) == 0 {
 				t.Fatalf("report is missing beginner guidance: %#v", got)
 			}
-			if tc.format == "PE" && !strings.Contains(got.Explanation, "Windows program") {
+			if tc.format == "PE" && !strings.Contains(got.Explanation, "standard Windows executable format") {
 				t.Fatalf("PE report does not explain the format: %q", got.Explanation)
 			}
 			if tc.format == "PE" && strings.Contains(got.Explanation, "instruction set instruction set") {
@@ -187,6 +193,42 @@ func TestAnalyzeRecognizesZIPTextAndUnknownBinary(t *testing.T) {
 	}
 }
 
+func TestAnalyzePreservesCompleteTextFileContents(t *testing.T) {
+	contents := "#!/bin/sh\nprintf 'Wrong password'\nsecret token flag{example}\n"
+	path := writeInput(t, []byte(contents))
+	value, err := (Analyzer{}).Analyze(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := evidenceOutput(value.Evidence, "Text content"); got != contents {
+		t.Fatalf("text content evidence = %q, want original file %q", got, contents)
+	}
+}
+
+func TestLongPrintableStringsRemainEvidenceWithoutBecomingSummaryClues(t *testing.T) {
+	longString := "runtime-error: " + strings.Repeat("allocator-state ", 80) + "Wrong passwordUsage: %s passGratz man :)"
+	var value report.Report
+	addStringEvidence([]string{longString}, &value)
+	if got := evidenceOutput(value.Evidence, "Printable strings"); got != longString {
+		t.Fatalf("printable-string evidence changed: got %q", got)
+	}
+	if len(value.Findings) != 1 {
+		t.Fatalf("expected concise message clues from the long string, got %#v", value.Findings)
+	}
+	for _, clue := range []string{"Wrong password", "Usage: %s pass", "Gratz man :)"} {
+		if !contains(value.Findings[0].Evidence, clue) {
+			t.Errorf("long string summary is missing clue %q: %#v", clue, value.Findings[0].Evidence)
+		}
+	}
+}
+
+func TestSpecificMessageCluesTakePriorityOverGenericRuntimeText(t *testing.T) {
+	got := importantStrings([]string{"Failed", "Wrong password", "Success"})
+	if len(got) != 1 || got[0] != "Wrong password" {
+		t.Fatalf("summary clues = %#v, want only the specific target message", got)
+	}
+}
+
 func TestTextDetectionAcceptsUnicodeAndRejectsControls(t *testing.T) {
 	if !isText([]byte("#!/bin/sh\necho café\n")) {
 		t.Fatal("valid UTF-8 text with a non-ASCII character was rejected")
@@ -196,14 +238,116 @@ func TestTextDetectionAcceptsUnicodeAndRejectsControls(t *testing.T) {
 	}
 }
 
-func TestSensitiveToolOutputIsRedacted(t *testing.T) {
-	got := sanitizeToolOutput("safe result\npassword = hunter2\nflag{answer}\nother line")
-	if strings.Contains(got, "hunter2") || strings.Contains(got, "flag{answer}") || strings.Contains(got, "password =") {
-		t.Fatalf("sensitive-looking lines were retained: %q", got)
+func TestAnalysisPreservesTargetStringsAndAnalyzerOutputAcrossReports(t *testing.T) {
+	stringsFound := []string{"Wrong password", "Gratz man :) ", "Usage: %s pass", "flag{example}", "secret", "token"}
+	for index := range 65 {
+		stringsFound = append(stringsFound, fmt.Sprintf("ordinary-string-%02d", index))
 	}
-	if !strings.Contains(got, "safe result") || !strings.Contains(got, "other line") {
-		t.Fatalf("safe output was lost: %q", got)
+	stringsFound = append(stringsFound, "late-evidence-after-sixty", strings.Repeat("x", 300)+"tail-marker")
+	path := writeInput(t, append(minimalPE(false), []byte("\x00"+strings.Join(stringsFound, "\x00")+"\x00")...))
+	flossOutput := "Wrong password\nGratz man :)\nflag{example}\nsecret\ntoken\n"
+	capaOutput := "possible capability: token lookup\npassword comparison\n"
+	runner := &recordingRunner{
+		versions: map[string]string{"capa": "capa 10.0.0", "floss": "FLOSS version 3.2.0"},
+		outputs:  map[string][]byte{"capa": []byte(capaOutput), "floss": []byte(flossOutput)},
 	}
+	lookPath := func(name string) (string, error) {
+		if name == "capa" || name == "floss" {
+			return name, nil
+		}
+		return "", exec.ErrNotFound
+	}
+	value, err := (Analyzer{Runner: runner, LookPath: lookPath}).Analyze(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	printable := evidenceOutput(value.Evidence, "Printable strings")
+	for _, item := range []string{"Wrong password", "Gratz man :) ", "Usage: %s pass", "flag{example}", "secret", "token", "late-evidence-after-sixty", "tail-marker"} {
+		if !strings.Contains(printable, item) {
+			t.Errorf("printable-string evidence lost %q", item)
+		}
+	}
+	var messageFinding []string
+	for _, finding := range value.Findings {
+		if finding.Title == "Program messages and usage" {
+			messageFinding = finding.Evidence
+		}
+	}
+	if !contains(messageFinding, "Wrong password") || !strings.Contains(value.NextSteps[0].Action, `Search for "Wrong password"`) {
+		t.Fatalf("beginner guidance did not prioritize the target's own message: findings=%#v next steps=%#v", value.Findings, value.NextSteps)
+	}
+	if got := evidenceOutput(value.Evidence, "capa"); got != capaOutput {
+		t.Errorf("capa evidence = %q, want original output %q", got, capaOutput)
+	}
+	if got := evidenceOutput(value.Evidence, "floss"); got != flossOutput {
+		t.Errorf("FLOSS evidence = %q, want original output %q", got, flossOutput)
+	}
+
+	jsonData, err := report.RenderJSON(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	markdown, err := report.RenderMarkdown(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	html, err := report.RenderHTML(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range []string{"Wrong password", "flag{example}", "secret", "token", "late-evidence-after-sixty", "tail-marker", "password comparison"} {
+		for _, rendered := range []struct {
+			name string
+			data string
+		}{{"JSON", string(jsonData)}, {"Markdown", markdown}, {"HTML", html}} {
+			if !strings.Contains(rendered.data, item) {
+				t.Errorf("%s report lost evidence %q", rendered.name, item)
+			}
+		}
+	}
+}
+
+func TestAnalyzerOutputLimitIsExplicitAndPreservesPrefix(t *testing.T) {
+	path := writeInput(t, minimalPE(false))
+	output := bytes.Repeat([]byte("x"), maxEvidenceOutput+32)
+	runner := &recordingRunner{
+		versions: map[string]string{"capa": "capa 10.0.0"},
+		outputs:  map[string][]byte{"capa": output},
+	}
+	lookPath := func(name string) (string, error) {
+		if name == "capa" {
+			return name, nil
+		}
+		return "", exec.ErrNotFound
+	}
+	value, err := (Analyzer{Runner: runner, LookPath: lookPath}).Analyze(context.Background(), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := evidenceOutput(value.Evidence, "capa"); len(got) != maxEvidenceOutput {
+		t.Fatalf("preserved analyzer output length = %d, want %d", len(got), maxEvidenceOutput)
+	}
+	if !containsWarning(value.Warnings, "output exceeded") || !containsWarning(value.Warnings, "first 131072 bytes") {
+		t.Fatalf("truncated analyzer output was not clearly reported: %v", value.Warnings)
+	}
+}
+
+func evidenceOutput(evidence []report.Evidence, source string) string {
+	for _, item := range evidence {
+		if item.Source == source {
+			return item.Output
+		}
+	}
+	return ""
+}
+
+func containsWarning(warnings []string, part string) bool {
+	for _, warning := range warnings {
+		if strings.Contains(warning, part) {
+			return true
+		}
+	}
+	return false
 }
 
 func TestAnalyzeNeverExecutesTarget(t *testing.T) {
