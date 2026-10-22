@@ -7,8 +7,12 @@ from pathlib import Path
 
 
 def main() -> int:
+    repository = Path(__file__).resolve().parents[1]
     result = subprocess.run(
-        ["git", "ls-files", "-z"], check=True, stdout=subprocess.PIPE
+        ["git", "-c", f"safe.directory={repository}", "ls-files", "-z"],
+        cwd=repository,
+        check=True,
+        stdout=subprocess.PIPE,
     )
     failures = []
     for raw_path in result.stdout.split(b"\0"):
