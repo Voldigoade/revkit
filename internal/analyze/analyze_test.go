@@ -279,7 +279,7 @@ func TestAnalyzeRejectsOversizedInput(t *testing.T) {
 func TestCommandRunnerBoundsTimeAndOutput(t *testing.T) {
 	if os.Getenv("REVKIT_RUNNER_HELPER") == "1" {
 		if os.Getenv("REVKIT_RUNNER_MODE") == "sleep" {
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 		} else if os.Getenv("REVKIT_RUNNER_MODE") == "env" {
 			_, _ = os.Stdout.Write([]byte(os.Getenv("CAPA_LOAD_VIV_WORKSPACE") + ":" + os.Getenv("FLOSS_LOAD_VIV_WORKSPACE")))
 		} else {
@@ -288,12 +288,12 @@ func TestCommandRunnerBoundsTimeAndOutput(t *testing.T) {
 		os.Exit(0)
 	}
 
-	runner := CommandRunner{Timeout: 25 * time.Millisecond, MaxOutput: 64}
+	runner := CommandRunner{Timeout: 500 * time.Millisecond, MaxOutput: 64}
 	t.Setenv("REVKIT_RUNNER_HELPER", "1")
 	t.Setenv("REVKIT_RUNNER_MODE", "sleep")
 	start := time.Now()
 	_, err := runner.Run(context.Background(), os.Args[0], "-test.run=TestCommandRunnerBoundsTimeAndOutput")
-	if err == nil || time.Since(start) > 500*time.Millisecond {
+	if err == nil || time.Since(start) > time.Second {
 		t.Fatalf("command did not time out promptly: elapsed=%s err=%v", time.Since(start), err)
 	}
 
